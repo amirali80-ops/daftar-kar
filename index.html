@@ -2375,8 +2375,8 @@
       <input type="text" inputmode="numeric" id="custPostalCode" placeholder="کد پستی (اختیاری)" dir="ltr" maxlength="10">
     </div>
     <div class="field">
-      <label>یادداشت</label>
-      <textarea id="custNote" placeholder="یادداشت دلخواه..."></textarea>
+      <label>توضیحات</label>
+      <textarea id="custNote" placeholder="توضیحات دلخواه درباره این مشتری..."></textarea>
     </div>
     <button class="btn btn-primary" id="saveCustomerBtn">ذخیره مشتری</button>
   </div>
@@ -2679,6 +2679,12 @@
     <div class="field">
       <label>تاریخ هزینه</label>
       <button type="button" class="jalali-date-btn" id="expDateBtn"></button>
+    </div>
+    <div class="field">
+      <label>مرتبط با (اختیاری)</label>
+      <select id="expRelatedCustomerSelect">
+        <option value="">— بدون ارتباط با مشتری خاص —</option>
+      </select>
     </div>
     <button class="btn btn-primary" id="saveExpenseBtn">ثبت هزینه</button>
   </div>
@@ -4620,6 +4626,7 @@
     document.getElementById('expDesc').value='';
     setJalaliDateValue('expDateBtn', Date.now());
     selectExpenseCategoryChip(expenseCategories[0] || 'سایر');
+    renderExpenseRelatedCustomerOptions('');
     openSheet('sheetExpense');
     setTimeout(()=>document.getElementById('expAmount').focus(), 200);
   }
@@ -4634,6 +4641,7 @@
     document.getElementById('expDesc').value = ex.desc;
     setJalaliDateValue('expDateBtn', ex.ts);
     selectExpenseCategoryChip(ex.category || expenseCategories[0] || 'سایر');
+    renderExpenseRelatedCustomerOptions(ex.relatedCustomerId || '');
     openSheet('sheetExpense');
   }
 
@@ -4644,10 +4652,11 @@
     if(!desc){ showToast('توضیح هزینه را وارد کن'); return; }
     const ts = getJalaliDateValue('expDateBtn');
     const category = selectedExpenseCategory;
+    const relatedCustomerId = document.getElementById('expRelatedCustomerSelect').value || null;
 
     if(editingExpenseId){
       const ex = DB.expenses.find(x=>x.id===editingExpenseId);
-      if(ex){ ex.amount=amount; ex.desc=desc; ex.ts=ts; ex.category=category; }
+      if(ex){ ex.amount=amount; ex.desc=desc; ex.ts=ts; ex.category=category; ex.relatedCustomerId=relatedCustomerId; }
       saveDB();
       closeSheet('sheetExpense');
       showToast('هزینه ویرایش شد');
@@ -4657,7 +4666,7 @@
       return;
     }
 
-    DB.expenses.push({ id: uid(), amount, desc, category, ts });
+    DB.expenses.push({ id: uid(), amount, desc, category, ts, relatedCustomerId });
     saveDB();
     recordActivity();
     closeSheet('sheetExpense');
@@ -4686,6 +4695,14 @@
     sel.innerHTML = DB.customers
       .slice().sort((a,b)=>a.name.localeCompare(b.name,'fa'))
       .map(c=>`<option value="${c.id}">${escapeHTML(c.name)}</option>`).join('');
+  }
+
+  function renderExpenseRelatedCustomerOptions(selectedId){
+    const sel = document.getElementById('expRelatedCustomerSelect');
+    const sorted = DB.customers.slice().sort((a,b)=>a.name.localeCompare(b.name,'fa'));
+    sel.innerHTML = `<option value="">— بدون ارتباط با مشتری خاص —</option>` +
+      sorted.map(c=>`<option value="${c.id}">${escapeHTML(c.name)}</option>`).join('');
+    sel.value = selectedId || '';
   }
 
   function renderSaleProductGrid(){
@@ -5812,14 +5829,20 @@
         const debt = (s.debt!=null) ? s.debt : (s.total-paid);
         return a + Math.max(0,debt);
       },0);
+      const relatedExpenses = DB.expenses.filter(e=>e.relatedCustomerId===id);
+      const relatedExpensesTotal = relatedExpenses.reduce((a,e)=>a+e.amount,0);
       titleEl.textContent = 'جزئیات مشتری';
       bodyEl.innerHTML = `
         <div class="detail-row"><span class="k">نام</span><span class="v">${escapeHTML(c.name)}</span></div>
         <div class="detail-row"><span class="k">شماره تماس</span><span class="v">${c.phone?escapeHTML(c.phone):'—'}</span></div>
-        ${c.note ? `<div class="detail-row"><span class="k">یادداشت</span><span class="v">${escapeHTML(c.note)}</span></div>` : ''}
         <div class="detail-row"><span class="k">تعداد خرید</span><span class="v">${toman(custSales.length)}</span></div>
         <div class="detail-row"><span class="k">مجموع خرید</span><span class="v">${toman(total)} تومان</span></div>
         <div class="detail-row"><span class="k">بدهی فعلی</span><span class="v" style="color:${totalDebt>0?'var(--danger)':'inherit'};">${toman(totalDebt)} تومان</span></div>
+        ${c.note ? `<div class="detail-row"><span class="k">توضیحات</span><span class="v">${escapeHTML(c.note)}</span></div>` : ''}
+        ${relatedExpenses.length ? `
+          <div class="detail-row"><span class="k">هزینه‌های مرتبط</span><span class="v">${toman(relatedExpenses.length)} مورد به مبلغ ${toman(relatedExpensesTotal)} تومان</span></div>
+          ${relatedExpenses.map(e=>`<div class="detail-row" style="padding-right:14px;"><span class="k">— ${escapeHTML(e.desc)}</span><span class="v">${toman(e.amount)} تومان</span></div>`).join('')}
+        ` : ''}
       `;
       if(totalDebt>0){
         payBtn.style.display = '';
@@ -5847,12 +5870,14 @@
     if(type==='expense'){
       const e = DB.expenses.find(x=>x.id===id);
       if(!e) return;
+      const relatedCust = e.relatedCustomerId ? DB.customers.find(x=>x.id===e.relatedCustomerId) : null;
       titleEl.textContent = 'جزئیات هزینه';
       bodyEl.innerHTML = `
         <div class="detail-row"><span class="k">توضیح</span><span class="v">${escapeHTML(e.desc)}</span></div>
         <div class="detail-row"><span class="k">دسته‌بندی</span><span class="v">${escapeHTML(e.category||'سایر')}</span></div>
         <div class="detail-row"><span class="k">مبلغ</span><span class="v">${toman(e.amount)} تومان</span></div>
         <div class="detail-row"><span class="k">تاریخ</span><span class="v">${fmtDateTime(e.ts)}</span></div>
+        ${relatedCust ? `<div class="detail-row"><span class="k">مرتبط با</span><span class="v">${escapeHTML(relatedCust.name)}</span></div>` : ''}
       `;
     }
     openSheet('sheetDetail');
@@ -5990,7 +6015,8 @@
     const key = map[type];
     if(type==='customer'){
       const hasSales = DB.sales.some(s=>s.customerId===id);
-      if(hasSales && !confirm('این مشتری دارای فروش ثبت‌شده است. حذف شود؟')) return;
+      const hasExpenses = DB.expenses.some(e=>e.relatedCustomerId===id);
+      if((hasSales || hasExpenses) && !confirm('این مشتری دارای فروش یا هزینه‌ی مرتبط ثبت‌شده است. حذف شود؟')) return;
     }
     if(type==='product'){
       const hasSales = DB.sales.some(s=>(s.items||[]).some(it=>it.productId===id));
@@ -7090,6 +7116,13 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.16.0',
+      notes: [
+        'برچسب «یادداشت» مشتری به «توضیحات» تغییر کرد تا واضح‌تر باشد؛ در جزئیات مشتری هم نمایش داده می‌شود',
+        'امکان جدید: هنگام ثبت هزینه می‌توان آن را به یک مشتری مشخص مرتبط کرد («مرتبط با»)؛ این هزینه‌ها در جزئیات همان مشتری هم لیست می‌شوند تا رابطه‌ی هزینه و مشتری قابل پیگیری باشد'
+      ]
+    },
     {
       version: '1.15.0',
       notes: [
