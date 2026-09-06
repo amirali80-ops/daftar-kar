@@ -1593,6 +1593,27 @@
   .detail-row:last-child { border-bottom: none; }
   .detail-row .k { color: var(--ink-faint); }
   .detail-row .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .detail-row .v.copyable {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 2px 8px;
+    margin: -2px -8px;
+    transition: background .15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .detail-row .v.copyable:active { background: var(--accent-soft); }
+  .detail-row .v.copyable::after {
+    content: '📋';
+    font-size: 11px;
+    opacity: 0.55;
+  }
+  .detail-row .v.copyable.copied::after {
+    content: '✓';
+    color: var(--accent-deep);
+    opacity: 1;
+  }
 
   /* toast */
   .toast {
@@ -2702,6 +2723,10 @@
       نمایش توضیحات هر کالا در فاکتور
     </label>
     <button class="btn btn-secondary" id="invoiceExportBtn" style="display:none; margin-top:8px;">🧾 خروجی فاکتور</button>
+    <div class="btn-row" id="postalLabelBtnRow" style="display:none;">
+      <button class="btn btn-secondary" id="addToPostalLabelsBtn" style="flex:1;">📮 افزودن به لیست برچسب</button>
+      <button class="btn btn-secondary" id="printSinglePostalLabelBtn" style="flex:1;">🖨 چاپ برچسب همین مشتری</button>
+    </div>
     <div class="btn-row">
       <button class="btn btn-secondary" id="editDetailBtn">✏️ ویرایش</button>
       <button class="btn btn-danger-text" id="deleteDetailBtn" style="flex:1; background:var(--danger-soft); margin-top:0; border-radius:12px;">🗑 حذف</button>
@@ -2862,6 +2887,16 @@
       </div>
     </div>
 
+    <div class="settings-row editable-row" id="postalLabelsRow">
+      <div class="row-header">
+        <div class="row-header-text">
+          <div class="t">📮 برچسب‌های پستی</div>
+          <div class="d">لیست گیرندگانی که برای چاپ برچسب پستی اضافه کرده‌اید.</div>
+        </div>
+        <button type="button" class="edit-toggle-btn" id="viewPostalLabelsBtn">مشاهده</button>
+      </div>
+    </div>
+
     <div class="settings-row inline">
       <div class="t">🌙 حالت تاریک</div>
       <label class="switch">
@@ -2945,6 +2980,20 @@
       <div class="search-box"><input type="text" id="searchInvoices" placeholder="جستجو بر اساس نام مشتری یا تاریخ..."></div>
     </div>
     <div class="card-list" id="invoicesList"></div>
+  </div>
+</div>
+
+<!-- ===================== SHEET: Postal Labels ===================== -->
+<div class="sheet-overlay" id="sheetPostalLabels">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>برچسب‌های پستی</h2>
+    <div class="help-hint-inline">این لیست، گیرندگانی است که برای چاپ برچسب پستی اضافه کرده‌اید. اطلاعات فرستنده از «مشخصات کسب‌وکار» در تنظیمات گرفته می‌شود.</div>
+    <div class="card-list" id="postalLabelsList"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button type="button" class="btn btn-primary" id="printAllPostalLabelsBtn">🖨 چاپ همه برچسب‌ها</button>
+    </div>
+    <button type="button" class="btn btn-danger-text" id="clearPostalLabelsBtn" style="margin-top:8px;">پاک کردن همه</button>
   </div>
 </div>
 
@@ -3037,6 +3086,7 @@
     db.expenses = db.expenses || [];
     db.payments = db.payments || [];
     db.invoices = db.invoices || [];
+    db.postalLabels = db.postalLabels || [];
     db.businessInfo = db.businessInfo || { name:'', ownerName:'', phone:'', address:'', logoDataUrl:'', signatureDataUrl:'', stampDataUrl:'' };
     if(db.businessInfo.logoDataUrl===undefined) db.businessInfo.logoDataUrl = '';
     if(db.businessInfo.signatureDataUrl===undefined) db.businessInfo.signatureDataUrl = '';
@@ -3092,6 +3142,7 @@
       expenses: [],
       payments: [],
       invoices: [],
+      postalLabels: [],
       businessInfo: { name:'', ownerName:'', phone:'', address:'', logoDataUrl:'', signatureDataUrl:'', stampDataUrl:'' },
       expenseCategories: ['سایر','اجاره','حقوق','خرید کالا','قبوض','حمل‌ونقل']
     };
@@ -5274,6 +5325,198 @@
     renderInvoicesList();
   }
 
+  /* ================= Postal Labels ================= */
+  function buildPostalLabelHTML(recipients){
+    const biz = loadBusinessInfo();
+    const senderName = biz.name || biz.ownerName || 'فروشنده';
+    const senderTag = biz.ownerName && biz.name ? biz.ownerName : '';
+    const senderAddress = biz.address || '';
+    const senderPhone = biz.phone || '';
+
+    function makeLabelHTML(r){
+      return `
+        <div class="label">
+          <div>
+            <div class="brand">
+              <span class="mark">${escapeHTML(senderName)}</span>
+              ${senderTag ? `<span class="tag">${escapeHTML(senderTag)}</span>` : ''}
+            </div>
+            <div class="block-title">فرستنده</div>
+            <div class="from-block">
+              ${senderAddress ? `<div><span class="fld">آدرس:</span> ${escapeHTML(senderAddress)}</div>` : ''}
+              ${senderPhone ? `<div><span class="fld">شماره تماس:</span> ${escapeHTML(senderPhone)}</div>` : ''}
+            </div>
+          </div>
+          <div>
+            <div class="divider"></div>
+            <div class="block-title">گیرنده</div>
+            <div class="to-block">
+              <div class="name"><span class="fld">نام:</span> ${escapeHTML(r.name)}</div>
+              <div class="addr"><span class="fld">آدرس:</span> ${escapeHTML(r.address || '')}</div>
+              ${r.postalCode ? `<div class="postal">کد پستی: ${escapeHTML(r.postalCode)}</div>` : ''}
+              ${r.phone ? `<div class="phone"><span class="fld">شماره تماس:</span> ${escapeHTML(r.phone)}</div>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    const perSheet = 3;
+    const sheetsCount = Math.ceil(recipients.length / perSheet);
+    let sheetsHTML = '';
+    for(let s=0; s<sheetsCount; s++){
+      let slots = '';
+      for(let slot=0; slot<perSheet; slot++){
+        const idx = s*perSheet + slot;
+        slots += idx < recipients.length ? makeLabelHTML(recipients[idx]) : `<div class="empty-slot"></div>`;
+      }
+      sheetsHTML += `<div class="sheet">${slots}</div>`;
+    }
+
+    return `<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>برچسب‌های پستی</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#111111; --line:#111111; --paper:#ffffff; --gray:#555555; }
+  *{box-sizing:border-box;}
+  body{ font-family:"Vazirmatn","Tahoma",sans-serif; background:#e8e8e8; margin:0; padding:24px; color:var(--ink); }
+  .sheet-wrap{ max-width:900px; margin:0 auto; }
+  .sheet{ background:var(--paper); width:210mm; min-height:297mm; margin:0 auto 30px; padding:0; display:grid; grid-template-columns:1fr; grid-auto-rows:99mm; gap:0; border:1px solid #ccc; }
+  .label{ border:1px dashed var(--line); padding:3mm 14mm 7mm; display:flex; flex-direction:column; justify-content:flex-start; position:relative; overflow:hidden; }
+  .brand{ display:flex; align-items:baseline; gap:8px; border-bottom:2px solid var(--ink); padding-bottom:3mm; margin-bottom:3mm; }
+  .brand .mark{ font-weight:800; font-size:19px; letter-spacing:0.3px; }
+  .brand .tag{ font-size:12px; color:var(--gray); font-weight:500; }
+  .block-title{ font-size:11px; letter-spacing:1.5px; color:var(--gray); font-weight:600; margin-bottom:2mm; }
+  .from-block{ font-size:13px; line-height:1.7; margin-bottom:2mm; }
+  .from-block .fld{ color:var(--gray); font-weight:500; }
+  .divider{ border-top:1.5px dashed #999; margin:5mm 0; }
+  .to-block{ font-size:13px; line-height:1.7; }
+  .to-block .name{ font-weight:700; font-size:14px; margin-bottom:1.5mm; }
+  .to-block .fld{ color:var(--gray); font-weight:500; }
+  .to-block .addr{ font-size:13px; font-weight:400; }
+  .to-block .phone{ font-size:13px; font-weight:400; margin-top:2mm; }
+  .to-block .postal{ font-size:13px; color:var(--ink); font-weight:400; margin-top:1.5mm; }
+  .empty-slot{ border:1px dashed #ccc; }
+  .print-bar{ max-width:900px; margin:0 auto 20px; text-align:center; }
+  .print-bar button{ font-family:inherit; font-size:14px; padding:10px 22px; border-radius:7px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
+  @page{ size:A4; margin:0; }
+  @media print{
+    body{ background:#fff; padding:0; }
+    .print-bar{ display:none; }
+    .sheet-wrap{ max-width:none; }
+    .sheet{ border:none; margin:0; box-shadow:none; page-break-after:always; }
+    .label{ border:1px dashed #999; }
+  }
+</style>
+</head>
+<body>
+  <div class="print-bar"><button onclick="window.print()">🖨 چاپ</button></div>
+  <div class="sheet-wrap">${sheetsHTML}</div>
+</body>
+</html>`;
+  }
+
+  function openPostalLabelsInNewTab(recipients){
+    if(!recipients.length){ showToast('گیرنده‌ای برای چاپ وجود ندارد'); return; }
+    const html = buildPostalLabelHTML(recipients);
+    const w = window.open('', '_blank');
+    if(!w){ showToast('اجازه‌ی باز کردن پنجره را بده'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
+  function addSaleCustomerToPostalLabels(saleId){
+    const s = DB.sales.find(x=>x.id===saleId);
+    if(!s) return null;
+    const cust = DB.customers.find(c=>c.id===s.customerId);
+    if(!cust){ showToast('مشتری این فروش پیدا نشد'); return null; }
+    if(!cust.address){ showToast('این مشتری آدرس ثبت‌شده ندارد'); return null; }
+    const recipient = {
+      id: uid(),
+      name: cust.name,
+      phone: cust.phone || '',
+      address: cust.address,
+      postalCode: cust.postalCode || '',
+      customerId: cust.id,
+      ts: Date.now()
+    };
+    DB.postalLabels.push(recipient);
+    saveDB();
+    return recipient;
+  }
+
+  document.getElementById('addToPostalLabelsBtn').addEventListener('click', ()=>{
+    const saleId = document.getElementById('addToPostalLabelsBtn').dataset.saleId;
+    const added = addSaleCustomerToPostalLabels(saleId);
+    if(added) showToast('به لیست برچسب پستی اضافه شد');
+  });
+
+  document.getElementById('printSinglePostalLabelBtn').addEventListener('click', ()=>{
+    const saleId = document.getElementById('printSinglePostalLabelBtn').dataset.saleId;
+    const s = DB.sales.find(x=>x.id===saleId);
+    if(!s) return;
+    const cust = DB.customers.find(c=>c.id===s.customerId);
+    if(!cust){ showToast('مشتری این فروش پیدا نشد'); return; }
+    if(!cust.address){ showToast('این مشتری آدرس ثبت‌شده ندارد'); return; }
+    openPostalLabelsInNewTab([{
+      name: cust.name, phone: cust.phone || '', address: cust.address, postalCode: cust.postalCode || ''
+    }]);
+  });
+
+  function renderPostalLabelsList(){
+    const box = document.getElementById('postalLabelsList');
+    const list = DB.postalLabels || [];
+    if(!list.length){
+      box.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="icon">📮</div><div class="msg">هنوز گیرنده‌ای به لیست برچسب پستی اضافه نشده.<br>از جزئیات هر فروش می‌توانی مشتری را اضافه کنی.</div></div>`;
+      return;
+    }
+    box.innerHTML = list.map(r=>`
+      <div class="item-card" data-id="${r.id}">
+        <div class="main-info">
+          <div class="title-row">${escapeHTML(r.name)}</div>
+          <div class="sub-row">${escapeHTML(r.address || '')}</div>
+          ${r.postalCode ? `<div class="sub-row">کد پستی: ${escapeHTML(r.postalCode)}</div>` : ''}
+        </div>
+        <div class="amount-col">
+          <button type="button" class="btn-icon-only remove-postal-label-btn" data-id="${r.id}" title="حذف از لیست" style="border:none; background:none; font-size:18px; cursor:pointer; color:var(--danger);">🗑</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('viewPostalLabelsBtn').addEventListener('click', ()=>{
+    renderPostalLabelsList();
+    openSheet('sheetPostalLabels');
+  });
+
+  document.getElementById('postalLabelsList').addEventListener('click', e=>{
+    const btn = e.target.closest('.remove-postal-label-btn');
+    if(!btn) return;
+    DB.postalLabels = DB.postalLabels.filter(r=>r.id!==btn.dataset.id);
+    saveDB();
+    renderPostalLabelsList();
+  });
+
+  document.getElementById('printAllPostalLabelsBtn').addEventListener('click', ()=>{
+    openPostalLabelsInNewTab(DB.postalLabels || []);
+  });
+
+  document.getElementById('clearPostalLabelsBtn').addEventListener('click', ()=>{
+    if(!(DB.postalLabels||[]).length){ showToast('لیست خالی است'); return; }
+    if(!confirm('همه گیرنده‌های ثبت‌شده در لیست برچسب پستی پاک شوند؟')) return;
+    DB.postalLabels = [];
+    saveDB();
+    renderPostalLabelsList();
+    showToast('لیست پاک شد');
+  });
+
+
+
   function openInvoiceInNewTab(html, invoiceData){
     const w = window.open('', '_blank');
     if(!w){ showToast('اجازه‌ی باز کردن پنجره را بده'); return; }
@@ -5776,6 +6019,10 @@
     invBtn.style.display = 'none';
     delete invBtn.dataset.saleId;
     document.getElementById('invoiceShowNotesRow').style.display = 'none';
+    const postalRow = document.getElementById('postalLabelBtnRow');
+    postalRow.style.display = 'none';
+    delete document.getElementById('addToPostalLabelsBtn').dataset.saleId;
+    delete document.getElementById('printSinglePostalLabelBtn').dataset.saleId;
 
     if(type==='sale'){
       const s = DB.sales.find(x=>x.id===id);
@@ -5818,6 +6065,9 @@
       invBtn.style.display = '';
       invBtn.dataset.saleId = s.id;
       document.getElementById('invoiceShowNotesRow').style.display = 'flex';
+      postalRow.style.display = 'flex';
+      document.getElementById('addToPostalLabelsBtn').dataset.saleId = s.id;
+      document.getElementById('printSinglePostalLabelBtn').dataset.saleId = s.id;
     }
     if(type==='customer'){
       const c = DB.customers.find(x=>x.id===id);
@@ -5833,8 +6083,10 @@
       const relatedExpensesTotal = relatedExpenses.reduce((a,e)=>a+e.amount,0);
       titleEl.textContent = 'جزئیات مشتری';
       bodyEl.innerHTML = `
-        <div class="detail-row"><span class="k">نام</span><span class="v">${escapeHTML(c.name)}</span></div>
-        <div class="detail-row"><span class="k">شماره تماس</span><span class="v">${c.phone?escapeHTML(c.phone):'—'}</span></div>
+        <div class="detail-row"><span class="k">نام</span><span class="v copyable" data-copy="${escapeHTML(c.name)}">${escapeHTML(c.name)}</span></div>
+        <div class="detail-row"><span class="k">شماره تماس</span><span class="v${c.phone?' copyable':''}"${c.phone?` data-copy="${escapeHTML(c.phone)}"`:''}>${c.phone?escapeHTML(c.phone):'—'}</span></div>
+        ${c.address ? `<div class="detail-row"><span class="k">آدرس</span><span class="v copyable" data-copy="${escapeHTML(c.address)}">${escapeHTML(c.address)}</span></div>` : ''}
+        ${c.postalCode ? `<div class="detail-row"><span class="k">کد پستی</span><span class="v copyable" data-copy="${escapeHTML(c.postalCode)}">${escapeHTML(c.postalCode)}</span></div>` : ''}
         <div class="detail-row"><span class="k">تعداد خرید</span><span class="v">${toman(custSales.length)}</span></div>
         <div class="detail-row"><span class="k">مجموع خرید</span><span class="v">${toman(total)} تومان</span></div>
         <div class="detail-row"><span class="k">بدهی فعلی</span><span class="v" style="color:${totalDebt>0?'var(--danger)':'inherit'};">${toman(totalDebt)} تومان</span></div>
@@ -5907,6 +6159,39 @@
     renderSales(document.getElementById('searchSales').value);
     showToast('وضعیت ارسال به‌روزرسانی شد');
   });
+
+  document.getElementById('detailBody').addEventListener('click', e=>{
+    const copyEl = e.target.closest('.copyable');
+    if(!copyEl) return;
+    const text = copyEl.dataset.copy;
+    if(!text) return;
+    const markCopied = ()=>{
+      copyEl.classList.add('copied');
+      setTimeout(()=> copyEl.classList.remove('copied'), 1200);
+      showToast('کپی شد');
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(markCopied).catch(()=>{
+        fallbackCopyText(text);
+        markCopied();
+      });
+    }else{
+      fallbackCopyText(text);
+      markCopied();
+    }
+  });
+
+  function fallbackCopyText(text){
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    document.body.removeChild(ta);
+  }
 
   document.getElementById('invoiceExportBtn').addEventListener('click', ()=>{
     const saleId = document.getElementById('invoiceExportBtn').dataset.saleId;
@@ -7116,6 +7401,22 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.17.0',
+      notes: [
+        'امکان جدید: چاپ برچسب پستی (فرستنده/گیرنده) درست مثل برچسب‌های رسمی پست، مستقیم از داخل برنامه',
+        'در جزئیات هر فروش، دکمه «افزودن به لیست برچسب» مشتری همان فروش را (با آدرس و کد پستی‌اش) به یک لیست جمع می‌کند، و دکمه «چاپ برچسب همین مشتری» بلافاصله یک برچسب تکی چاپ می‌کند',
+        'بخش جدید «برچسب‌های پستی» در تنظیمات: لیست گیرندگان جمع‌شده را نشان می‌دهد و امکان چاپ همه با هم (سه برچسب در هر صفحه A4) یا حذف تک‌تک/پاک‌کردن کامل را می‌دهد',
+        'اطلاعات فرستنده روی برچسب، همان «مشخصات کسب‌وکار» ثبت‌شده در تنظیمات است'
+      ]
+    },
+    {
+      version: '1.16.1',
+      notes: [
+        'آدرس و کد پستی مشتری (در صورت وارد شدن) حالا در جزئیات مشتری نمایش داده می‌شوند',
+        'در جزئیات مشتری، روی نام، شماره تماس، آدرس و کد پستی می‌توان زد تا همان مقدار کپی شود — برای وارد کردن سریع در سامانه پست'
+      ]
+    },
     {
       version: '1.16.0',
       notes: [
