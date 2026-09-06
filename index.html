@@ -5329,20 +5329,21 @@
   function buildPostalLabelHTML(recipients){
     const biz = loadBusinessInfo();
     const senderName = biz.name || biz.ownerName || 'فروشنده';
-    const senderTag = biz.ownerName && biz.name ? biz.ownerName : '';
+    const senderOwnerName = biz.ownerName || '';
     const senderAddress = biz.address || '';
     const senderPhone = biz.phone || '';
 
     function makeLabelHTML(r){
+      const noAddress = !r.address;
       return `
         <div class="label">
           <div>
             <div class="brand">
               <span class="mark">${escapeHTML(senderName)}</span>
-              ${senderTag ? `<span class="tag">${escapeHTML(senderTag)}</span>` : ''}
             </div>
             <div class="block-title">فرستنده</div>
             <div class="from-block">
+              ${senderOwnerName ? `<div class="name">${escapeHTML(senderOwnerName)}</div>` : ''}
               ${senderAddress ? `<div><span class="fld">آدرس:</span> ${escapeHTML(senderAddress)}</div>` : ''}
               ${senderPhone ? `<div><span class="fld">شماره تماس:</span> ${escapeHTML(senderPhone)}</div>` : ''}
             </div>
@@ -5352,7 +5353,9 @@
             <div class="block-title">گیرنده</div>
             <div class="to-block">
               <div class="name"><span class="fld">نام:</span> ${escapeHTML(r.name)}</div>
-              <div class="addr"><span class="fld">آدرس:</span> ${escapeHTML(r.address || '')}</div>
+              ${noAddress
+                ? `<div class="addr-warning">⚠ آدرس ثبت‌شده ندارد</div>`
+                : `<div class="addr"><span class="fld">آدرس:</span> ${escapeHTML(r.address)}</div>`}
               ${r.postalCode ? `<div class="postal">کد پستی: ${escapeHTML(r.postalCode)}</div>` : ''}
               ${r.phone ? `<div class="phone"><span class="fld">شماره تماس:</span> ${escapeHTML(r.phone)}</div>` : ''}
             </div>
@@ -5392,6 +5395,7 @@
   .brand .tag{ font-size:12px; color:var(--gray); font-weight:500; }
   .block-title{ font-size:11px; letter-spacing:1.5px; color:var(--gray); font-weight:600; margin-bottom:2mm; }
   .from-block{ font-size:13px; line-height:1.7; margin-bottom:2mm; }
+  .from-block .name{ font-weight:700; font-size:14px; margin-bottom:1mm; }
   .from-block .fld{ color:var(--gray); font-weight:500; }
   .divider{ border-top:1.5px dashed #999; margin:5mm 0; }
   .to-block{ font-size:13px; line-height:1.7; }
@@ -5400,6 +5404,17 @@
   .to-block .addr{ font-size:13px; font-weight:400; }
   .to-block .phone{ font-size:13px; font-weight:400; margin-top:2mm; }
   .to-block .postal{ font-size:13px; color:var(--ink); font-weight:400; margin-top:1.5mm; }
+  .addr-warning{
+    display:inline-block;
+    background:#fde2e2;
+    color:#a11f1f;
+    border:1px solid #f0a8a8;
+    border-radius:5px;
+    padding:2.5mm 4mm;
+    font-size:13px;
+    font-weight:700;
+    margin-top:1mm;
+  }
   .empty-slot{ border:1px dashed #ccc; }
   .print-bar{ max-width:900px; margin:0 auto 20px; text-align:center; }
   .print-bar button{ font-family:inherit; font-size:14px; padding:10px 22px; border-radius:7px; border:1px solid var(--ink); background:var(--ink); color:#fff; cursor:pointer; }
@@ -7401,6 +7416,13 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.17.1',
+      notes: [
+        'در برچسب پستی، نام مالک کسب‌وکار به‌جای کنار اسم برند، پایین‌تر و زیر «فرستنده» نمایش داده می‌شود',
+        'اگر گیرنده‌ای آدرس نداشته باشد، روی خود برچسب یک اخطار قرمز و برجسته («آدرس ثبت‌شده ندارد») نمایش داده می‌شود به‌جای متن معمولی مشکی'
+      ]
+    },
     {
       version: '1.17.0',
       notes: [
