@@ -2248,6 +2248,31 @@
       </div>
     </div>
 
+    <div class="field" id="shipDateField" style="display:none;">
+      <label>تاریخ ارسال</label>
+      <button type="button" class="jalali-date-btn" id="shipDateBtn"></button>
+    </div>
+
+    <div class="field">
+      <label>هزینه ارسال (اختیاری)</label>
+      <div class="discount-row">
+        <div class="percent-input-wrap">
+          <input type="text" inputmode="numeric" id="shipChargedAmount" placeholder="0" dir="ltr">
+        </div>
+      </div>
+      <div class="help-hint-inline" style="margin-top:6px;">چقدر بابت ارسال از مشتری گرفتی (اگر گرفتی). این مبلغ به جمع فروش اضافه می‌شود.</div>
+    </div>
+
+    <div class="field">
+      <label>هزینه واقعی ارسال (اختیاری)</label>
+      <div class="discount-row">
+        <div class="percent-input-wrap">
+          <input type="text" inputmode="numeric" id="shipCostAmount" placeholder="0" dir="ltr">
+        </div>
+      </div>
+      <div class="help-hint-inline" style="margin-top:6px;">چقدر واقعاً به پست/پیک دادی. این مبلغ به‌عنوان هزینه در گزارش‌ها حساب می‌شود، نه از جمع فروش کم می‌شود.</div>
+    </div>
+
     <div class="field">
       <label>توضیحات (اختیاری)</label>
       <textarea id="saleNote" rows="3" placeholder="مثلاً: پرداخت نقدی" style="width:100%; font-family:inherit; font-size:14.5px; padding:12px 14px; border-radius:11px; border:1.5px solid var(--line-strong); background:var(--paper-raised); color:var(--ink); resize:vertical;"></textarea>
@@ -2817,6 +2842,11 @@
         <div class="field" style="margin-bottom:10px;">
           <label>نام مجموعه / فروشگاه</label>
           <input type="text" id="bizNameInput" placeholder="مثلاً: چوب فورس">
+        </div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>توضیح کوتاه (اختیاری)</label>
+          <input type="text" id="bizTaglineInput" placeholder="مثلاً: تولید و فروش محصولات چوبی" maxlength="60">
+          <div class="help-hint-inline" style="margin-top:6px;">کنار نام مجموعه، روی فاکتور و برچسب پستی نمایش داده می‌شود.</div>
         </div>
         <div class="field" style="margin-bottom:10px;">
           <label>نام و نام‌خانوادگی صاحب کسب‌وکار</label>
@@ -3494,6 +3524,8 @@
   liveFormatNumberInput(document.getElementById('saleDiscountValue'));
   liveFormatNumberInput(document.getElementById('preInvUnitPrice'));
   liveFormatNumberInput(document.getElementById('preInvDiscountValue'));
+  liveFormatNumberInput(document.getElementById('shipChargedAmount'));
+  liveFormatNumberInput(document.getElementById('shipCostAmount'));
 
   /* ---------------- Jalali date picker (shared across sale/expense/payment forms) ---------------- */
   const jalaliDateState = {}; // { saleDateBtn: tsValue, expDateBtn: tsValue, paymentDateBtn: tsValue }
@@ -3552,6 +3584,7 @@
   document.getElementById('saleDateBtn').addEventListener('click', ()=> openJalaliPicker('saleDateBtn'));
   document.getElementById('expDateBtn').addEventListener('click', ()=> openJalaliPicker('expDateBtn'));
   document.getElementById('paymentDateBtn').addEventListener('click', ()=> openJalaliPicker('paymentDateBtn'));
+  document.getElementById('shipDateBtn').addEventListener('click', ()=> openJalaliPicker('shipDateBtn'));
 
   document.getElementById('jalaliTodayBtn').addEventListener('click', ()=>{
     populateJalaliSelects(Date.now());
@@ -4134,7 +4167,8 @@
     const expenses = DB.expenses.filter(e=> inPeriod(e.ts, currentPeriod, now));
 
     const totalSales = sales.reduce((a,s)=>a+s.total,0);
-    const totalExpense = expenses.reduce((a,e)=>a+e.amount,0);
+    const totalShipCost = sales.reduce((a,s)=>a+(s.shipCostAmount||0),0);
+    const totalExpense = expenses.reduce((a,e)=>a+e.amount,0) + totalShipCost;
     const profit = totalSales - totalExpense;
 
     document.getElementById('rptSales').textContent = toman(totalSales);
@@ -5024,6 +5058,15 @@
 
     currentShipStatus = s.shippingStatus || 'preparing';
     document.querySelectorAll('#shipStatusToggle button').forEach(b=>b.classList.toggle('active', b.dataset.status===currentShipStatus));
+    if(currentShipStatus==='shipped' || currentShipStatus==='delivered'){
+      document.getElementById('shipDateField').style.display = '';
+      setJalaliDateValue('shipDateBtn', s.shipDate || Date.now());
+    }else{
+      document.getElementById('shipDateField').style.display = 'none';
+      delete jalaliDateState['shipDateBtn'];
+    }
+    document.getElementById('shipChargedAmount').value = s.shipChargedAmount ? s.shipChargedAmount.toLocaleString('en-US') : '';
+    document.getElementById('shipCostAmount').value = s.shipCostAmount ? s.shipCostAmount.toLocaleString('en-US') : '';
 
     updateSaleTotal();
     openSheet('sheetSale');
@@ -5057,6 +5100,14 @@
     document.querySelectorAll('#shipStatusToggle button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     currentShipStatus = btn.dataset.status;
+    const dateField = document.getElementById('shipDateField');
+    if(currentShipStatus==='shipped' || currentShipStatus==='delivered'){
+      dateField.style.display = '';
+      // اگه تا الان تاریخی انتخاب نشده بود، پیش‌فرض رو روی همین لحظه بذار
+      if(jalaliDateState['shipDateBtn']==null) setJalaliDateValue('shipDateBtn', Date.now());
+    }else{
+      dateField.style.display = 'none';
+    }
   });
 
   /* ---- discount / tax (sale) ---- */
@@ -5071,6 +5122,7 @@
   });
   document.getElementById('saleDiscountValue').addEventListener('input', updateSaleTotal);
   document.getElementById('saleTaxPercent').addEventListener('input', updateSaleTotal);
+  document.getElementById('shipChargedAmount').addEventListener('input', updateSaleTotal);
 
   // subtotal (raw items) -> discount -> tax -> final total
   function computeSaleFinancials(subtotal, discountType, discountRaw, taxRaw){
@@ -5129,6 +5181,7 @@
       </tr>`).join('');
     const debt = Math.max(0, opts.total - opts.paidAmount);
     const bizNameLine = biz.name ? escapeHTML(biz.name) : 'فاکتور فروش';
+    const bizTaglineLine = biz.tagline ? escapeHTML(biz.tagline) : '';
     const bizSubLine = [biz.ownerName, biz.phone].filter(Boolean).map(escapeHTML).join(' &nbsp;|&nbsp; ');
     const cust = opts.customer || {};
     const custDetailLine = [
@@ -5146,6 +5199,7 @@
   .inv-header-left{display:flex; align-items:center; gap:12px;}
   .inv-logo{width:48px; height:48px; border-radius:10px; object-fit:cover; flex-shrink:0;}
   .biz-name{font-size:19px; font-weight:800;}
+  .biz-tagline{font-size:12px; font-weight:500; color:#78716c;}
   .biz-sub{font-size:12px; color:#78716c; margin-top:4px;}
   .doc-type{font-size:16px; font-weight:800; text-align:left;}
   .doc-type .badge{display:block; margin-top:4px; font-size:11px; font-weight:600; padding:3px 10px; border-radius:10px; background:#f2ead9; color:#96702e; width:fit-content; margin-right:auto;}
@@ -5180,7 +5234,7 @@
     <div class="inv-header-left">
       ${biz.logoDataUrl ? `<img class="inv-logo" src="${biz.logoDataUrl}" alt="">` : ''}
       <div>
-        <div class="biz-name">${bizNameLine}</div>
+        <div class="biz-name">${bizNameLine}${bizTaglineLine ? ` <span class="biz-tagline">${bizTaglineLine}</span>` : ''}</div>
         ${bizSubLine ? `<div class="biz-sub">${bizSubLine}</div>` : ''}
       </div>
     </div>
@@ -5329,6 +5383,7 @@
   function buildPostalLabelHTML(recipients){
     const biz = loadBusinessInfo();
     const senderName = biz.name || biz.ownerName || 'فروشنده';
+    const senderTagline = biz.tagline || '';
     const senderOwnerName = biz.ownerName || '';
     const senderAddress = biz.address || '';
     const senderPhone = biz.phone || '';
@@ -5340,6 +5395,7 @@
           <div>
             <div class="brand">
               <span class="mark">${escapeHTML(senderName)}</span>
+              ${senderTagline ? `<span class="tag">${escapeHTML(senderTagline)}</span>` : ''}
             </div>
             <div class="block-title">فرستنده</div>
             <div class="from-block">
@@ -5565,15 +5621,17 @@
       document.getElementById('saleDiscountValue').value,
       document.getElementById('saleTaxPercent').value
     );
-    document.getElementById('saleTotalPreview').textContent = toman(fin.total) + ' تومان';
+    const shipCharged = parseNumInput(document.getElementById('shipChargedAmount'));
+    const grandTotal = fin.total + shipCharged;
+    document.getElementById('saleTotalPreview').textContent = toman(grandTotal) + ' تومان';
 
     const debtBox = document.getElementById('saleDebtPreviewBox');
     let paid = 0;
-    if(currentPayStatus==='full') paid = fin.total;
+    if(currentPayStatus==='full') paid = grandTotal;
     else if(currentPayStatus==='none') paid = 0;
     else paid = parseNumInput(document.getElementById('salePaidAmount'));
 
-    const debt = Math.max(0, fin.total - paid);
+    const debt = Math.max(0, grandTotal - paid);
     if(currentPayStatus!=='full' && debt>0){
       debtBox.style.display = '';
       document.getElementById('saleDebtPreview').textContent = toman(debt) + ' تومان';
@@ -5596,6 +5654,10 @@
     document.getElementById('salePaidAmount').value = '';
     currentShipStatus = 'preparing';
     document.querySelectorAll('#shipStatusToggle button').forEach(b=>b.classList.toggle('active', b.dataset.status==='preparing'));
+    document.getElementById('shipDateField').style.display = 'none';
+    delete jalaliDateState['shipDateBtn'];
+    document.getElementById('shipChargedAmount').value = '';
+    document.getElementById('shipCostAmount').value = '';
   }
 
   document.getElementById('openPreInvoiceBtn').addEventListener('click', ()=> openPreInvoiceSheet());
@@ -5925,7 +5987,11 @@
       document.getElementById('saleDiscountValue').value,
       document.getElementById('saleTaxPercent').value
     );
-    const total = fin.total;
+    const shipChargedAmount = parseNumInput(document.getElementById('shipChargedAmount'));
+    const shipCostAmount = parseNumInput(document.getElementById('shipCostAmount'));
+    const shipDate = (currentShipStatus==='shipped' || currentShipStatus==='delivered')
+      ? getJalaliDateValue('shipDateBtn') : undefined;
+    const total = fin.total + shipChargedAmount;
 
     let paidAmount;
     if(currentPayStatus==='full') paidAmount = total;
@@ -5944,7 +6010,10 @@
       discountValue: fin.discountAmount>0 ? fin.discountValue : undefined,
       discountAmount: fin.discountAmount>0 ? fin.discountAmount : undefined,
       taxPercent: fin.taxAmount>0 ? fin.taxPercent : undefined,
-      taxAmount: fin.taxAmount>0 ? fin.taxAmount : undefined
+      taxAmount: fin.taxAmount>0 ? fin.taxAmount : undefined,
+      shipChargedAmount: shipChargedAmount>0 ? shipChargedAmount : undefined,
+      shipCostAmount: shipCostAmount>0 ? shipCostAmount : undefined,
+      shipDate
     };
 
     if(editingSaleId){
@@ -6063,6 +6132,9 @@
         ${debt>0 ? `<div class="detail-row"><span class="k">مانده بدهی</span><span class="v" style="color:var(--danger);">${toman(debt)} تومان</span></div>` : ''}
         ${s.note ? `<div class="detail-row"><span class="k">توضیح</span><span class="v">${escapeHTML(s.note)}</span></div>` : ''}
         <div class="detail-row"><span class="k">تاریخ</span><span class="v">${fmtDateTime(s.ts)}</span></div>
+        ${s.shipChargedAmount>0 ? `<div class="detail-row"><span class="k">دریافتی بابت ارسال</span><span class="v">${toman(s.shipChargedAmount)} تومان</span></div>` : ''}
+        ${s.shipCostAmount>0 ? `<div class="detail-row"><span class="k">هزینه واقعی ارسال</span><span class="v" style="color:var(--danger);">${toman(s.shipCostAmount)} تومان</span></div>` : ''}
+        ${s.shipDate ? `<div class="detail-row"><span class="k">تاریخ ارسال</span><span class="v">${fmtDateTime(s.shipDate)}</span></div>` : ''}
         <div class="field" style="margin-top:14px;">
           <label>وضعیت ارسال</label>
           <div class="ship-status-toggle" id="detailShipStatusToggle" data-sale-id="${s.id}">
@@ -6169,10 +6241,14 @@
     const s = DB.sales.find(x=>x.id===saleId);
     if(!s) return;
     s.shippingStatus = btn.dataset.status;
+    if((s.shippingStatus==='shipped' || s.shippingStatus==='delivered') && !s.shipDate){
+      s.shipDate = Date.now();
+    }
     saveDB();
     document.querySelectorAll('#detailShipStatusToggle button').forEach(b=>b.classList.toggle('active', b===btn));
     renderSales(document.getElementById('searchSales').value);
     showToast('وضعیت ارسال به‌روزرسانی شد');
+    openDetail('sale', saleId);
   });
 
   document.getElementById('detailBody').addEventListener('click', e=>{
@@ -6619,6 +6695,7 @@
     document.getElementById('categoryEditor').value = expenseCategories.join('\n');
     const biz = loadBusinessInfo();
     document.getElementById('bizNameInput').value = biz.name || '';
+    document.getElementById('bizTaglineInput').value = biz.tagline || '';
     document.getElementById('bizOwnerInput').value = biz.ownerName || '';
     document.getElementById('bizPhoneInput').value = biz.phone || '';
     document.getElementById('bizAddressInput').value = biz.address || '';
@@ -6641,6 +6718,7 @@
     DB.businessInfo = {
       ...DB.businessInfo,
       name: document.getElementById('bizNameInput').value.trim(),
+      tagline: document.getElementById('bizTaglineInput').value.trim(),
       ownerName: document.getElementById('bizOwnerInput').value.trim(),
       phone: document.getElementById('bizPhoneInput').value.trim(),
       address: document.getElementById('bizAddressInput').value.trim(),
@@ -7416,6 +7494,14 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.18.0',
+      notes: [
+        'برای هر فروش می‌توان تاریخ ارسال را ثبت کرد؛ با تغییر وضعیت به «ارسال شده» یا «تحویل داده شده»، این تاریخ خودکار پیشنهاد می‌شود و قابل ویرایش است',
+        'دو فیلد جدید به فروش اضافه شد: «هزینه ارسال» (چقدر از مشتری برای ارسال گرفتی، به جمع فروش اضافه می‌شود) و «هزینه واقعی ارسال» (چقدر واقعاً به پست/پیک دادی، در گزارش‌ها به‌عنوان هزینه حساب می‌شود تا سود واقعی ارسال معلوم باشد)',
+        'در مشخصات کسب‌وکار، فیلد «توضیح کوتاه» اضافه شد؛ هرچه در آن نوشته شود، کنار نام مجموعه هم روی فاکتور و هم روی برچسب پستی نمایش داده می‌شود'
+      ]
+    },
     {
       version: '1.17.1',
       notes: [
