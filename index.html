@@ -772,6 +772,38 @@
   }
   .btn:active { transform: scale(0.98); }
   .btn-primary { background: var(--accent-deep); color: #fff; margin-top: 6px; }
+  .btn-add-to-cart {
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+  }
+  .btn-add-to-cart .plus-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    font-size: 15px;
+    line-height: 1;
+  }
+  .btn-add-to-cart:active { transform: scale(0.97); }
+  .cart-count-badge {
+    background: var(--accent-deep);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 20px;
+    padding: 2px 9px;
+    flex-shrink: 0;
+  }
   .btn-danger-text {
     background: none;
     color: var(--danger);
@@ -1088,6 +1120,56 @@
     opacity: 0;
     pointer-events: none;
     position: absolute;
+  }
+
+  .mini-collapsible {
+    border: 1.5px solid var(--line-strong);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .mini-collapsible .mc-toggle-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 14px;
+    background: var(--paper-raised);
+    border: none;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .mini-collapsible .mc-toggle-btn .mc-chevron {
+    transition: transform .25s cubic-bezier(.22,1,.36,1);
+    color: var(--ink-faint);
+    font-size: 12px;
+  }
+  .mini-collapsible.is-open .mc-toggle-btn .mc-chevron {
+    transform: rotate(180deg);
+  }
+  .mini-collapsible .mc-body {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition: grid-template-rows .3s cubic-bezier(.22,1,.36,1), opacity .22s ease;
+  }
+  .mini-collapsible.is-open .mc-body {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .mini-collapsible .mc-body-inner {
+    overflow: hidden;
+    min-height: 0;
+    padding: 0 14px 14px;
+  }
+  .mini-collapsible .mc-summary {
+    font-size: 12px;
+    color: var(--accent-deep);
+    font-weight: 700;
   }
 
   /* ---------- Export / Import action buttons + inline choice menu ---------- */
@@ -2146,6 +2228,7 @@
     <div class="sheet-handle"></div>
     <h2 id="saleSheetTitle">ثبت فروش جدید</h2>
 
+    <div class="section-title">۱. مشتری و تاریخ</div>
     <div class="field">
       <label>مشتری</label>
       <div class="inline-select-row">
@@ -2159,9 +2242,10 @@
       <button type="button" class="jalali-date-btn" id="saleDateBtn"></button>
     </div>
 
-    <div class="section-title" style="margin-top:16px;">
-      انتخاب محصول
-      <span class="help-hint">!<span class="help-popover">روی یک محصول از لیست بزن تا انتخاب بشه، بعد تعداد و قیمت رو مشخص کن و دکمه «افزودن به فاکتور» رو بزن. می‌تونی چند محصول مختلف رو پشت سر هم اضافه کنی.</span></span>
+    <div class="section-title" style="margin-top:26px;">
+      ۲. افزودن محصولات
+      <span class="cart-count-badge" id="cartCountBadge" style="display:none;"></span>
+      <span class="help-hint">!<span class="help-popover">روی یک محصول از لیست بزن تا انتخاب بشه، بعد تعداد و قیمت رو مشخص کن و دکمه سبز «افزودن به فاکتور» رو بزن. می‌تونی چند محصول مختلف رو پشت سر هم اضافه کنی.</span></span>
     </div>
     <div class="product-grid" id="saleProductGrid"></div>
 
@@ -2189,12 +2273,15 @@
       <input type="text" inputmode="numeric" id="saleUnitPrice" placeholder="0" dir="ltr">
     </div>
 
-    <button type="button" class="btn btn-secondary" id="addCartItemBtn" style="margin-bottom:6px;">➕ افزودن این محصول به فاکتور</button>
+    <button type="button" class="btn btn-add-to-cart" id="addCartItemBtn">
+      <span class="plus-icon">+</span> افزودن به فاکتور
+    </button>
 
     <div id="saleCartBox"></div>
 
+    <div class="section-title" style="margin-top:26px;">۳. تخفیف و مالیات <span style="font-weight:500; color:var(--ink-faint);">(اختیاری)</span></div>
     <div class="field">
-      <label>تخفیف (اختیاری)</label>
+      <label>تخفیف</label>
       <div class="discount-row">
         <div class="pay-status-toggle" id="saleDiscountTypeToggle" style="margin-bottom:0; flex-shrink:0; width:150px;">
           <button type="button" data-disc-type="percent" class="active">درصد</button>
@@ -2205,7 +2292,7 @@
     </div>
 
     <div class="field">
-      <label>مالیات (اختیاری)</label>
+      <label>مالیات</label>
       <div class="discount-row">
         <div class="percent-input-wrap">
           <input type="text" inputmode="numeric" id="saleTaxPercent" placeholder="0" dir="ltr">
@@ -2219,6 +2306,7 @@
       <span class="val" id="saleTotalPreview">۰ تومان</span>
     </div>
 
+    <div class="section-title" style="margin-top:26px;">۴. پرداخت</div>
     <div class="field">
       <label>وضعیت پرداخت <span class="help-hint">!<span class="help-popover">«تسویه کامل» یعنی مشتری کل مبلغ رو پرداخت کرده. «پرداخت جزئی» یعنی بخشی از مبلغ رو داده و بقیه بدهی می‌مونه. «بدون پرداخت» یعنی کل مبلغ به‌صورت بدهی ثبت میشه.</span></span></label>
       <div class="pay-status-toggle" id="payStatusToggle">
@@ -2238,6 +2326,7 @@
       <span class="val" id="saleDebtPreview" style="color:var(--danger);">۰ تومان</span>
     </div>
 
+    <div class="section-title" style="margin-top:26px;">۵. ارسال <span style="font-weight:500; color:var(--ink-faint);">(اختیاری)</span></div>
     <div class="field">
       <label>وضعیت ارسال</label>
       <div class="ship-status-toggle" id="shipStatusToggle">
@@ -2253,24 +2342,33 @@
       <button type="button" class="jalali-date-btn" id="shipDateBtn"></button>
     </div>
 
-    <div class="field">
-      <label>هزینه ارسال (اختیاری)</label>
-      <div class="discount-row">
-        <div class="percent-input-wrap">
-          <input type="text" inputmode="numeric" id="shipChargedAmount" placeholder="0" dir="ltr">
+    <div class="mini-collapsible" id="shipCostCollapsible">
+      <button type="button" class="mc-toggle-btn" id="shipCostToggleBtn">
+        <span>📦 ثبت هزینه ارسال <span class="mc-summary" id="shipCostSummary"></span></span>
+        <span class="mc-chevron">▾</span>
+      </button>
+      <div class="mc-body">
+        <div class="mc-body-inner">
+          <div class="field" style="margin-bottom:10px;">
+            <label>دریافتی بابت ارسال (اختیاری)</label>
+            <div class="discount-row">
+              <div class="percent-input-wrap">
+                <input type="text" inputmode="numeric" id="shipChargedAmount" placeholder="0" dir="ltr">
+              </div>
+            </div>
+            <div class="help-hint-inline" style="margin-top:6px;">چقدر بابت ارسال از مشتری گرفتی. این مبلغ به جمع فروش اضافه می‌شود.</div>
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>هزینه واقعی ارسال (اختیاری)</label>
+            <div class="discount-row">
+              <div class="percent-input-wrap">
+                <input type="text" inputmode="numeric" id="shipCostAmount" placeholder="0" dir="ltr">
+              </div>
+            </div>
+            <div class="help-hint-inline" style="margin-top:6px;">چقدر واقعاً به پست/پیک دادی. این مبلغ به‌عنوان هزینه در گزارش‌ها حساب می‌شود، نه از جمع فروش کم می‌شود.</div>
+          </div>
         </div>
       </div>
-      <div class="help-hint-inline" style="margin-top:6px;">چقدر بابت ارسال از مشتری گرفتی (اگر گرفتی). این مبلغ به جمع فروش اضافه می‌شود.</div>
-    </div>
-
-    <div class="field">
-      <label>هزینه واقعی ارسال (اختیاری)</label>
-      <div class="discount-row">
-        <div class="percent-input-wrap">
-          <input type="text" inputmode="numeric" id="shipCostAmount" placeholder="0" dir="ltr">
-        </div>
-      </div>
-      <div class="help-hint-inline" style="margin-top:6px;">چقدر واقعاً به پست/پیک دادی. این مبلغ به‌عنوان هزینه در گزارش‌ها حساب می‌شود، نه از جمع فروش کم می‌شود.</div>
     </div>
 
     <div class="field">
@@ -4913,10 +5011,14 @@
 
   function renderSaleCart(){
     const box = document.getElementById('saleCartBox');
+    const badge = document.getElementById('cartCountBadge');
     if(saleCart.length===0){
       box.innerHTML = '';
+      badge.style.display = 'none';
       return;
     }
+    badge.style.display = 'inline-flex';
+    badge.textContent = `${toFaDigits(saleCart.length)} قلم اضافه‌شده`;
     box.innerHTML = saleCart.map((item,idx)=>`
       <div class="cart-item" data-idx="${idx}">
         <div class="ci-info">
@@ -5067,6 +5169,8 @@
     }
     document.getElementById('shipChargedAmount').value = s.shipChargedAmount ? s.shipChargedAmount.toLocaleString('en-US') : '';
     document.getElementById('shipCostAmount').value = s.shipCostAmount ? s.shipCostAmount.toLocaleString('en-US') : '';
+    document.getElementById('shipCostCollapsible').classList.toggle('is-open', !!(s.shipChargedAmount || s.shipCostAmount));
+    updateShipCostSummary();
 
     updateSaleTotal();
     openSheet('sheetSale');
@@ -5123,6 +5227,26 @@
   document.getElementById('saleDiscountValue').addEventListener('input', updateSaleTotal);
   document.getElementById('saleTaxPercent').addEventListener('input', updateSaleTotal);
   document.getElementById('shipChargedAmount').addEventListener('input', updateSaleTotal);
+  document.getElementById('shipChargedAmount').addEventListener('input', updateShipCostSummary);
+  document.getElementById('shipCostAmount').addEventListener('input', updateShipCostSummary);
+
+  function updateShipCostSummary(){
+    const charged = parseNumInput(document.getElementById('shipChargedAmount'));
+    const cost = parseNumInput(document.getElementById('shipCostAmount'));
+    const summaryEl = document.getElementById('shipCostSummary');
+    if(charged>0 || cost>0){
+      const parts = [];
+      if(charged>0) parts.push(`دریافتی: ${toman(charged)}`);
+      if(cost>0) parts.push(`هزینه: ${toman(cost)}`);
+      summaryEl.textContent = '(' + parts.join(' · ') + ')';
+    }else{
+      summaryEl.textContent = '';
+    }
+  }
+
+  document.getElementById('shipCostToggleBtn').addEventListener('click', ()=>{
+    document.getElementById('shipCostCollapsible').classList.toggle('is-open');
+  });
 
   // subtotal (raw items) -> discount -> tax -> final total
   function computeSaleFinancials(subtotal, discountType, discountRaw, taxRaw){
@@ -5645,6 +5769,7 @@
   function resetSaleForm(){
     editingSaleId = null;
     saleCart = [];
+    document.getElementById('cartCountBadge').style.display = 'none';
     document.getElementById('saleSheetTitle').textContent = 'ثبت فروش جدید';
     document.getElementById('saveSaleBtn').textContent = 'ثبت فروش';
     currentPayStatus = 'full';
@@ -5658,6 +5783,8 @@
     delete jalaliDateState['shipDateBtn'];
     document.getElementById('shipChargedAmount').value = '';
     document.getElementById('shipCostAmount').value = '';
+    document.getElementById('shipCostCollapsible').classList.remove('is-open');
+    updateShipCostSummary();
   }
 
   document.getElementById('openPreInvoiceBtn').addEventListener('click', ()=> openPreInvoiceSheet());
@@ -7494,6 +7621,20 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.19.0',
+      notes: [
+        'فرم ثبت فروش بازطراحی شد تا مسیرش واضح‌تر باشد: حالا به ۵ بخش شماره‌دار تقسیم شده (مشتری و تاریخ، افزودن محصولات، تخفیف و مالیات، پرداخت، ارسال)',
+        'دکمه «افزودن به فاکتور» بزرگ‌تر، پررنگ‌تر و با رنگ متفاوت از دکمه نهایی «ثبت فروش» شد تا این دو عمل با هم اشتباه گرفته نشوند',
+        'یک نشان کوچک نشان می‌دهد چند قلم تا الان به فاکتور اضافه شده، تا در فرم بلند گم نشوی'
+      ]
+    },
+    {
+      version: '1.18.1',
+      notes: [
+        'بخش هزینه ارسال در فرم ثبت فروش جمع‌وجور شد: حالا یک دکمه‌ی کوچک «ثبت هزینه ارسال» است که با زدنش دو فیلد دریافتی/هزینه باز می‌شود، به‌جای اشغال دائمی فضا'
+      ]
+    },
     {
       version: '1.18.0',
       notes: [
