@@ -5692,6 +5692,7 @@
   document.getElementById('postalLabelsList').addEventListener('click', e=>{
     const btn = e.target.closest('.remove-postal-label-btn');
     if(!btn) return;
+    if(!confirm('این گیرنده از لیست برچسب پستی حذف شود؟')) return;
     DB.postalLabels = DB.postalLabels.filter(r=>r.id!==btn.dataset.id);
     saveDB();
     renderPostalLabelsList();
@@ -6516,6 +6517,8 @@
     const { type, id } = currentDetail;
     const map = { sale:'sales', customer:'customers', product:'products', expense:'expenses' };
     const key = map[type];
+    const typeLabel = { sale:'این فروش', customer:'این مشتری', product:'این محصول', expense:'این هزینه' }[type] || 'این مورد';
+    if(!confirm(`${typeLabel} برای همیشه حذف شود؟ این عمل قابل بازگشت نیست.`)) return;
     if(type==='customer'){
       const hasSales = DB.sales.some(s=>s.customerId===id);
       const hasExpenses = DB.expenses.some(e=>e.relatedCustomerId===id);
@@ -7621,6 +7624,13 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.19.1',
+      notes: [
+        'رفع اشکال: حذف فروش، مشتری، محصول یا هزینه از صفحه جزئیات بدون هیچ تاییدی انجام می‌شد؛ الان همیشه یک پیام تایید نشان داده می‌شود',
+        'حذف تکی گیرنده از لیست برچسب پستی هم حالا تایید می‌خواهد'
+      ]
+    },
     {
       version: '1.19.0',
       notes: [
