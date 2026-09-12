@@ -7625,6 +7625,12 @@
   */
   const APP_CHANGELOG = [
     {
+      version: '1.19.2',
+      notes: [
+        'رفع اشکال: پنجره «تغییرات جدید» هر بار که فایل به‌روز می‌شد دوباره نمایش داده می‌شد، حتی برای رفع اشکال‌های خیلی کوچک. از این به بعد این پنجره فقط وقتی نشان داده می‌شود که یک ویژگی واقعاً جدید اضافه شده باشد، نه هر بار'
+      ]
+    },
+    {
       version: '1.19.1',
       notes: [
         'رفع اشکال: حذف فروش، مشتری، محصول یا هزینه از صفحه جزئیات بدون هیچ تاییدی انجام می‌شد؛ الان همیشه یک پیام تایید نشان داده می‌شود',
@@ -7854,11 +7860,14 @@
   function showChangelogIfNeeded(){
     if(!APP_CHANGELOG.length) return;
     const latest = APP_CHANGELOG[0];
+    // فقط دو رقم اول نسخه (major.minor) رو مقایسه می‌کنیم — یعنی رفع اشکال‌های
+    // کوچیک (تغییر فقط رقم سوم/patch) دیگه دوباره این پنجره رو نشون نمی‌دن؛
+    // فقط وقتی یک ویژگی واقعاً جدید اومده باشه (رقم دوم/minor عوض شده) نشون داده می‌شه.
+    const minorOf = (v)=> v.split('.').slice(0,2).join('.');
     let seen = null;
     try{ seen = localStorage.getItem(CHANGELOG_SEEN_KEY); }catch(e){}
-    // اگه نسخه‌ی دیده‌شده با آخرین نسخه فرق داشت (یعنی از آپدیت قبلی اومده یا اولین بارشه)، نشون بده.
     // seen===null یعنی اولین اجرای برنامه‌ست؛ اون حالت رو هم نشون می‌دیم چون تغییرات همینه که کاربر می‌بینه.
-    if(seen !== latest.version){
+    if(seen === null || minorOf(seen) !== minorOf(latest.version)){
       const listEl = document.getElementById('changelogList');
       listEl.innerHTML = latest.notes.map(n=>`<li>${n}</li>`).join('');
       document.getElementById('changelogVersionLabel').textContent = 'نسخه ' + latest.version;
