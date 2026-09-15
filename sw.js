@@ -1,4 +1,4 @@
-const CACHE_NAME = 'daftar-kar-v60';
+const CACHE_NAME = 'daftar-kar-v61';
 const APP_SHELL = [
   './',
   './index.html',
