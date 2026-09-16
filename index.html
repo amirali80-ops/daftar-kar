@@ -1220,6 +1220,27 @@
     color: var(--accent-deep);
     border: 1.5px solid var(--accent);
   }
+  .installment-row.is-overdue {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+  }
+  .overdue-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--danger);
+    background: #fff;
+    border: 1px solid var(--danger);
+    border-radius: 20px;
+    padding: 1px 7px;
+    margin-inline-start: 4px;
+    vertical-align: middle;
+  }
+  .inst-due-date.edit-inst-date-btn {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+  }
 
   /* ---------- Export / Import action buttons + inline choice menu ---------- */
   .backup-actions-row {
@@ -2214,6 +2235,11 @@
       <div class="l">مجموع بدهی مشتریان (کل)</div>
     </div>
 
+    <div class="debt-summary-total" id="rptMonthlyInstallmentBox" style="display:none;">
+      <div class="n" id="rptMonthlyInstallment" style="color:var(--danger);">۰ تومان</div>
+      <div class="l">قسط این ماه که باید بدی</div>
+    </div>
+
     <div class="mini-chart-wrap">
       <div class="mc-title">نمودار این هفته</div>
       <div class="mini-chart-bars" id="miniChartBars"></div>
@@ -3185,6 +3211,7 @@
       <span class="lbl" style="color:var(--danger);">مجموع باقی‌مانده کل بدهی‌ها</span>
       <span class="val" id="debtsGrandTotal" style="color:var(--danger);">۰ تومان</span>
     </div>
+    <div class="help-hint-inline" id="debtsOverdueBox" style="display:none; background: var(--danger-soft); color: var(--danger); font-weight:700; border: 1px solid var(--danger);"></div>
     <div class="card-list" id="debtsList"></div>
     <button type="button" class="btn btn-primary" id="addDebtFromListBtn" style="margin-top:14px;">+ ثبت بدهی جدید</button>
   </div>
@@ -3859,6 +3886,17 @@
     setJalaliDateValue(activeJalaliTarget, ts);
     if(activeJalaliTarget==='rptFromDateBtn'){ customRangeFrom = ts; renderReport(); }
     if(activeJalaliTarget==='rptToDateBtn'){ customRangeTo = ts; renderReport(); }
+    if(activeJalaliTarget==='installmentDateEdit'){
+      const d = DB.debts.find(x=>x.id===editingInstallmentDebtId);
+      const inst = d && (d.installments||[]).find(x=>x.n===editingInstallmentN);
+      if(inst){
+        inst.dueTs = ts;
+        saveDB();
+        renderDebtInstallmentsList();
+      }
+      editingInstallmentDebtId = null;
+      editingInstallmentN = null;
+    }
     const filterDateMap = {
       salesFilterFromBtn: ['sales','from'], salesFilterToBtn: ['sales','to'],
       customersFilterFromBtn: ['customers','from'], customersFilterToBtn: ['customers','to'],
@@ -4455,6 +4493,21 @@
       return a + Math.max(0,debt);
     },0);
     document.getElementById('rptTotalDebt').textContent = toman(totalDebtAll) + ' تومان';
+
+    // قسط‌هایی که سررسیدشون توی همین ماه شمسی جاریه و هنوز پرداخت نشدن
+    const { start: monthStart, end: monthEnd } = currentMonthRange(now);
+    const monthlyInstallmentTotal = (DB.debts||[]).reduce((a,d)=>{
+      if(d.mode!=='installment' || !Array.isArray(d.installments)) return a;
+      const dueThisMonth = d.installments.filter(x=>!x.paid && x.dueTs>=monthStart && x.dueTs<=monthEnd);
+      return a + dueThisMonth.reduce((s,x)=>s+x.amount,0);
+    },0);
+    const monthlyBox = document.getElementById('rptMonthlyInstallmentBox');
+    if(monthlyInstallmentTotal>0){
+      monthlyBox.style.display = '';
+      document.getElementById('rptMonthlyInstallment').textContent = toman(monthlyInstallmentTotal) + ' تومان';
+    }else{
+      monthlyBox.style.display = 'none';
+    }
 
     // top products
     const map = {};
@@ -5875,6 +5928,8 @@
   let activeDebtPaymentId = null;
   let debtMode = 'manual'; // 'manual' | 'installment'
   let activeInstallmentsDebtId = null;
+  let editingInstallmentDebtId = null;
+  let editingInstallmentN = null;
 
   function addJalaliMonths(ts, monthsToAdd){
     const d = new Date(ts);
@@ -5908,9 +5963,25 @@
   function renderDebtsList(){
     const box = document.getElementById('debtsList');
     const list = DB.debts || [];
+    const now = Date.now();
     const grandTotal = list.reduce((a,d)=>a+Math.max(0,d.remaining),0);
     document.getElementById('debtsGrandTotal').textContent = toman(grandTotal) + ' تومان';
     document.getElementById('debtsGrandTotalBox').style.display = list.length ? '' : 'none';
+
+    const overdueCount = list.reduce((a,d)=>{
+      if(d.mode!=='installment' || !Array.isArray(d.installments)) return a;
+      return a + d.installments.filter(x=>!x.paid && x.dueTs<now).length;
+    },0);
+    const overdueBox = document.getElementById('debtsOverdueBox');
+    if(overdueBox){
+      if(overdueCount>0){
+        overdueBox.style.display = '';
+        overdueBox.textContent = `⚠ ${toFaDigits(overdueCount)} قسط معوق (سررسید گذشته و پرداخت‌نشده) داری`;
+      }else{
+        overdueBox.style.display = 'none';
+      }
+    }
+
     if(!list.length){
       box.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="icon">💳</div><div class="msg">هنوز بدهی‌ای ثبت نشده.<br>وام، قسط یا هر بدهی دیگه‌ای که خودت داری رو اینجا اضافه کن.</div></div>`;
       return;
@@ -5921,9 +5992,10 @@
       const isPaidOff = d.remaining<=0;
       const isInstallment = d.mode==='installment' && Array.isArray(d.installments);
       const paidCount = isInstallment ? d.installments.filter(x=>x.paid).length : 0;
+      const debtOverdueCount = isInstallment ? d.installments.filter(x=>!x.paid && x.dueTs<now).length : 0;
       return `<div class="item-card debt-card" data-id="${d.id}">
         <div class="main-info" style="width:100%;">
-          <div class="title-row">${escapeHTML(d.title)}${isPaidOff ? ' <span class="paid-badge">تسویه شد</span>' : ''}</div>
+          <div class="title-row">${escapeHTML(d.title)}${isPaidOff ? ' <span class="paid-badge">تسویه شد</span>' : ''}${debtOverdueCount>0 ? ` <span class="overdue-tag">${toFaDigits(debtOverdueCount)} قسط معوق</span>` : ''}</div>
           <div class="sub-row">باقی‌مانده: ${toman(Math.max(0,d.remaining))} تومان از ${toman(d.principal)} تومان</div>
           ${isInstallment ? `<div class="sub-row">${toFaDigits(paidCount)} از ${toFaDigits(d.installments.length)} قسط پرداخت‌شده</div>` : ''}
           <div class="debt-progress-bar"><div class="debt-progress-fill" style="width:${pct}%;"></div></div>
@@ -6119,20 +6191,38 @@
     if(!d) return;
     document.getElementById('debtInstallmentsTitle').textContent = 'اقساط: ' + d.title;
     const box = document.getElementById('debtInstallmentsList');
-    box.innerHTML = (d.installments||[]).map(inst=>`
-      <div class="installment-row ${inst.paid ? 'is-paid' : ''}">
+    const now = Date.now();
+    box.innerHTML = (d.installments||[]).map(inst=>{
+      const isOverdue = !inst.paid && inst.dueTs < now;
+      return `
+      <div class="installment-row ${inst.paid ? 'is-paid' : ''} ${isOverdue ? 'is-overdue' : ''}">
         <div class="inst-info">
-          <div class="inst-title">قسط ${toFaDigits(inst.n)}</div>
-          <div class="inst-sub">${toman(inst.amount)} تومان · سررسید ${fmtDate(inst.dueTs)}${inst.paid ? ' · پرداخت‌شده' : ''}</div>
+          <div class="inst-title">قسط ${toFaDigits(inst.n)}${isOverdue ? ' <span class="overdue-tag">معوق</span>' : ''}</div>
+          <div class="inst-sub">
+            ${toman(inst.amount)} تومان ·
+            <span class="inst-due-date edit-inst-date-btn" data-id="${d.id}" data-n="${inst.n}">سررسید ${fmtDate(inst.dueTs)} ✎</span>
+            ${inst.paid ? ' · پرداخت‌شده' : ''}
+          </div>
         </div>
         <button type="button" class="inst-status-btn" data-id="${d.id}" data-n="${inst.n}">
           ${inst.paid ? '✓ پرداخت‌شده' : 'ثبت پرداخت'}
         </button>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
 
   document.getElementById('debtInstallmentsList').addEventListener('click', e=>{
+    const dateBtn = e.target.closest('.edit-inst-date-btn');
+    if(dateBtn){
+      const d = DB.debts.find(x=>x.id===dateBtn.dataset.id);
+      const inst = d && (d.installments||[]).find(x=>x.n===Number(dateBtn.dataset.n));
+      if(!inst) return;
+      editingInstallmentDebtId = dateBtn.dataset.id;
+      editingInstallmentN = Number(dateBtn.dataset.n);
+      jalaliDateState['installmentDateEdit'] = inst.dueTs;
+      openJalaliPicker('installmentDateEdit');
+      return;
+    }
     const btn = e.target.closest('.inst-status-btn');
     if(!btn) return;
     const d = DB.debts.find(x=>x.id===btn.dataset.id);
@@ -8119,6 +8209,15 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.22.0',
+      notes: [
+        'تاریخ سررسید هر قسط حالا قابل ویرایش دستی است (برای وقتی که قسطت دقیقاً سر ماه یا هر روز خاص دیگری است، نه فاصله ثابت)',
+        'اقساطی که سررسیدشان گذشته و هنوز پرداخت نشده‌اند با برچسب قرمز «معوق» مشخص می‌شوند، هم در لیست اقساط و هم روی کارت خود بدهی',
+        'در صفحه «بدهی‌های من» اگر قسط معوق داشته باشی، یک هشدار بالای لیست نشان داده می‌شود',
+        'در گزارش‌ها، مجموع اقساطی که سررسیدشان در همین ماه شمسی جاری است و هنوز پرداخت نشده‌اند نمایش داده می‌شود'
+      ]
+    },
     {
       version: '1.21.0',
       notes: [
