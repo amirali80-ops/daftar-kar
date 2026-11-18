@@ -1887,6 +1887,68 @@
     direction: rtl;
   }
 
+  /* ---------- Collapsible boxes in report (animated open/close) ---------- */
+  .collapse-box {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: grid-template-rows .38s cubic-bezier(.4,0,.2,1),
+                opacity .28s ease,
+                transform .38s cubic-bezier(.4,0,.2,1),
+                visibility 0s linear .38s;
+  }
+  .collapse-box.open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition: grid-template-rows .38s cubic-bezier(.4,0,.2,1),
+                opacity .32s ease .06s,
+                transform .38s cubic-bezier(.4,0,.2,1),
+                visibility 0s;
+  }
+  .collapse-inner { overflow: hidden; min-height: 0; }
+  .collapse-inner > .collapse-pad { padding-bottom: 16px; }
+
+  .prev-months-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .prev-month-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 6px;
+    border-radius: 12px;
+    border: 1.5px solid var(--line);
+    background: var(--paper-raised);
+    font-family: inherit;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, color .2s ease, transform .15s ease;
+    animation: chipIn .34s cubic-bezier(.2,.9,.3,1.2) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+  .prev-month-chip .pm-name { font-size: 13px; font-weight: 700; }
+  .prev-month-chip .pm-year { font-size: 11px; color: var(--ink-faint); }
+  .prev-month-chip:active { transform: scale(0.95); }
+  .prev-month-chip.active {
+    background: var(--accent-deep);
+    border-color: var(--accent-deep);
+    color: #fff;
+  }
+  .prev-month-chip.active .pm-year { color: rgba(255,255,255,0.75); }
+  @keyframes chipIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.92); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
   .big-stat {
     background: var(--paper-raised);
     border: 1px solid var(--line);
@@ -2186,19 +2248,39 @@
       <button data-period="today" class="active">امروز</button>
       <button data-period="week">این هفته</button>
       <button data-period="month">این ماه</button>
-      <button data-period="all">کل</button>
+      <button data-period="prevMonths">ماه‌های قبل</button>
       <button data-period="custom">بازه دلخواه</button>
     </div>
     <div class="period-range-label" id="periodRangeLabel"></div>
 
-    <div id="customRangeBox" style="display:none; margin-bottom:16px;">
-      <div class="field">
-        <label>از تاریخ</label>
-        <button type="button" class="jalali-date-btn" id="rptFromDateBtn"></button>
+    <div class="collapse-box" id="prevMonthsBox">
+      <div class="collapse-inner">
+        <div class="collapse-pad" id="prevMonthsList"></div>
       </div>
-      <div class="field">
-        <label>تا تاریخ</label>
-        <button type="button" class="jalali-date-btn" id="rptToDateBtn"></button>
+    </div>
+
+    <div class="collapse-box" id="allOptionsBox">
+      <div class="collapse-inner">
+        <div class="collapse-pad">
+          <div class="chip-select" id="rangeModeChips" style="margin-bottom:12px;">
+            <button type="button" class="chip active" data-mode="all">کل</button>
+            <button type="button" class="chip" data-mode="range">انتخاب بازه تاریخ</button>
+          </div>
+          <div class="collapse-box" id="customRangeBox">
+            <div class="collapse-inner">
+              <div class="collapse-pad">
+                <div class="field">
+                  <label>از تاریخ</label>
+                  <button type="button" class="jalali-date-btn" id="rptFromDateBtn"></button>
+                </div>
+                <div class="field">
+                  <label>تا تاریخ</label>
+                  <button type="button" class="jalali-date-btn" id="rptToDateBtn"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -4368,28 +4450,98 @@
 
   /* ================= RENDER: Report ================= */
   let currentPeriod = 'today';
+  let customRangeOpen = false;      // آیا «بازه دلخواه» داخل تب «کل» باز است
+  let selectedPrevMonth = null;     // { jy, jm } ماه انتخاب‌شده در تب «ماه‌های قبل»
+
+  function ensureCustomRangeDefaults(){
+    if(customRangeFrom==null){
+      const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
+      customRangeFrom = startOfToday.getTime();
+      setJalaliDateValue('rptFromDateBtn', customRangeFrom);
+    }
+    if(customRangeTo==null){
+      customRangeTo = Date.now();
+      setJalaliDateValue('rptToDateBtn', customRangeTo);
+    }
+  }
+
+  // ماه‌های شمسی قبل از ماه جاری که حداقل یک فروش یا هزینه دارند (جدیدترین اول)
+  function getPrevMonthsWithData(){
+    const n = new Date();
+    const [cy, cm] = g2j(n.getFullYear(), n.getMonth()+1, n.getDate());
+    const seen = new Map();
+    const add = ts=>{
+      const d = new Date(ts);
+      const [jy, jm] = g2j(d.getFullYear(), d.getMonth()+1, d.getDate());
+      if(jy<cy || (jy===cy && jm<cm)) seen.set(jy*100+jm, { jy, jm });
+    };
+    DB.sales.forEach(x=>add(x.ts));
+    DB.expenses.forEach(x=>add(x.ts));
+    return [...seen.values()].sort((a,b)=> (b.jy-a.jy) || (b.jm-a.jm));
+  }
+
+  function jalaliMonthRange(jy, jm){
+    const [sgy, sgm, sgd] = j2g(jy, jm, 1);
+    const start = new Date(sgy, sgm-1, sgd, 0,0,0,0).getTime();
+    const days = jm<=6 ? 31 : (jm<=11 ? 30 : (isJalaliLeap(jy) ? 30 : 29));
+    const [egy, egm, egd] = j2g(jy, jm, days);
+    const end = new Date(egy, egm-1, egd, 23,59,59,999).getTime();
+    return { start, end };
+  }
+
+  function renderPrevMonthsList(){
+    const box = document.getElementById('prevMonthsList');
+    const list = getPrevMonthsWithData();
+    if(!list.length){
+      selectedPrevMonth = null;
+      box.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="icon">🗓️</div><div class="msg">هنوز ماه قبلی‌ای با فروش یا هزینه ثبت نشده.</div></div>`;
+      return;
+    }
+    if(!selectedPrevMonth || !list.some(m=>m.jy===selectedPrevMonth.jy && m.jm===selectedPrevMonth.jm)){
+      selectedPrevMonth = list[0];
+    }
+    box.innerHTML = `<div class="prev-months-grid">` + list.map((m,i)=>{
+      const active = (m.jy===selectedPrevMonth.jy && m.jm===selectedPrevMonth.jm) ? ' active' : '';
+      return `<button type="button" class="prev-month-chip${active}" data-jy="${m.jy}" data-jm="${m.jm}" style="--i:${Math.min(i,12)};">
+        <span class="pm-name">${jalaliMonthNames[m.jm-1]}</span>
+        <span class="pm-year">${toFaDigits(m.jy)}</span>
+      </button>`;
+    }).join('') + `</div>`;
+  }
+
+  document.getElementById('prevMonthsList').addEventListener('click', e=>{
+    const chip = e.target.closest('.prev-month-chip');
+    if(!chip) return;
+    selectedPrevMonth = { jy: Number(chip.dataset.jy), jm: Number(chip.dataset.jm) };
+    document.querySelectorAll('#prevMonthsList .prev-month-chip').forEach(c=>c.classList.toggle('active', c===chip));
+    renderReport();
+  });
 
   document.getElementById('periodTabs').addEventListener('click', e=>{
     const btn = e.target.closest('button');
     if(!btn) return;
     document.querySelectorAll('#periodTabs button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    currentPeriod = btn.dataset.period;
-    const customBox = document.getElementById('customRangeBox');
-    if(currentPeriod==='custom'){
-      customBox.style.display = '';
-      if(customRangeFrom==null){
-        const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
-        customRangeFrom = startOfToday.getTime();
-        setJalaliDateValue('rptFromDateBtn', customRangeFrom);
-      }
-      if(customRangeTo==null){
-        customRangeTo = Date.now();
-        setJalaliDateValue('rptToDateBtn', customRangeTo);
-      }
-    }else{
-      customBox.style.display = 'none';
-    }
+    const picked = btn.dataset.period;
+    // تب «بازه دلخواه» دو حالت دارد: «کل» (همه‌ی فعالیت‌ها) یا انتخاب بازه تاریخ
+    currentPeriod = (picked==='custom' && !customRangeOpen) ? 'all' : picked;
+
+    if(picked==='prevMonths') renderPrevMonthsList();
+    if(currentPeriod==='custom') ensureCustomRangeDefaults();
+
+    document.getElementById('prevMonthsBox').classList.toggle('open', picked==='prevMonths');
+    document.getElementById('allOptionsBox').classList.toggle('open', picked==='custom');
+    renderReport();
+  });
+
+  document.getElementById('rangeModeChips').addEventListener('click', e=>{
+    const chip = e.target.closest('.chip');
+    if(!chip) return;
+    customRangeOpen = chip.dataset.mode==='range';
+    document.querySelectorAll('#rangeModeChips .chip').forEach(c=>c.classList.toggle('active', c===chip));
+    document.getElementById('customRangeBox').classList.toggle('open', customRangeOpen);
+    if(customRangeOpen) ensureCustomRangeDefaults();
+    currentPeriod = customRangeOpen ? 'custom' : 'all';
     renderReport();
   });
 
@@ -4400,6 +4552,11 @@
     if(period==='today') return isSameDay(ts, now);
     if(period==='week') return isThisWeek(ts, now);
     if(period==='month') return isThisMonth(ts, now);
+    if(period==='prevMonths'){
+      if(!selectedPrevMonth) return false;
+      const { start, end } = jalaliMonthRange(selectedPrevMonth.jy, selectedPrevMonth.jm);
+      return ts >= start && ts <= end;
+    }
     if(period==='custom'){
       const from = customRangeFrom!=null ? customRangeFrom : 0;
       const to = customRangeTo!=null ? customRangeTo : now;
@@ -4446,6 +4603,13 @@
     }else if(currentPeriod==='month'){
       const { start } = currentMonthRange(now);
       labelEl.textContent = `از ${fmtDate(start)} تا ${fmtDate(now)}`;
+    }else if(currentPeriod==='prevMonths'){
+      if(selectedPrevMonth){
+        const { start, end } = jalaliMonthRange(selectedPrevMonth.jy, selectedPrevMonth.jm);
+        labelEl.textContent = `${jalaliMonthNames[selectedPrevMonth.jm-1]} ${toFaDigits(selectedPrevMonth.jy)} — از ${fmtDate(start)} تا ${fmtDate(end)}`;
+      }else{
+        labelEl.textContent = '';
+      }
     }else if(currentPeriod==='custom'){
       const from = customRangeFrom!=null ? customRangeFrom : 0;
       const to = customRangeTo!=null ? customRangeTo : now;
@@ -8209,6 +8373,14 @@
     تا فقط یک‌بار به کاربر نمایش داده بشه بعد از آپدیت.
   */
   const APP_CHANGELOG = [
+    {
+      version: '1.23.0',
+      notes: [
+        'در گزارش‌ها دکمه جدید «ماه‌های قبل» اضافه شد؛ با زدن روی آن ماه‌های قبلی که فروش یا هزینه داشته‌اند باز می‌شوند و با انتخاب هر ماه، خلاصه همان ماه را می‌بینی',
+        'دکمه «کل» حذف شد و داخل «بازه دلخواه» آمد: با زدن «بازه دلخواه» می‌توانی «کل» (همه‌ی فعالیت‌ها) یا «انتخاب بازه تاریخ» را بزنی',
+        'باز و بسته شدن بخش‌های جدید گزارش با انیمیشن انجام می‌شود'
+      ]
+    },
     {
       version: '1.22.0',
       notes: [
