@@ -1949,6 +1949,169 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
+  /* ---------- Segmented buttons (کل / انتخاب بازه دلخواه / فیلتر تراکنش‌ها) ---------- */
+  .seg-control { display: flex; gap: 8px; margin-bottom: 12px; }
+  .seg-control button {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 11px 8px;
+    border-radius: 12px;
+    border: 1.5px solid var(--line);
+    background: var(--paper-raised);
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .22s ease, border-color .22s ease, color .22s ease, transform .15s ease;
+  }
+  .seg-control button:active { transform: scale(0.97); }
+  .seg-control button.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-deep);
+  }
+  .seg-control button .cnt { font-size: 11px; font-weight: 700; opacity: 0.65; }
+
+  /* ---------- Compare with previous period ---------- */
+  .period-compare-label {
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    margin: -10px 0 16px 0;
+    direction: rtl;
+  }
+  .period-compare-label:empty { display: none; }
+  .delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    animation: fadein .3s ease;
+  }
+  .delta:empty { display: none; }
+  .delta.good { background: var(--accent-soft); color: var(--accent-deep); }
+  .delta.bad { background: var(--danger-soft); color: var(--danger); }
+  .delta.flat { background: var(--line); color: var(--ink-faint); }
+
+  /* ---------- Trend chart (month / custom / all) ---------- */
+  .trend-bars {
+    display: flex;
+    direction: ltr;
+    flex-direction: row-reverse;
+    align-items: flex-end;
+    gap: 3px;
+    height: 104px;
+  }
+  .trend-bars .tr-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 0 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .25s ease, box-shadow .25s ease;
+  }
+  .trend-bars .tr-col.sel {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 1.5px var(--accent-deep) inset;
+  }
+  .trend-bars .tr-pair {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1px;
+    width: 100%;
+    height: 82px;
+  }
+  .trend-bars .tr-bar {
+    flex: 1;
+    max-width: 8px;
+    min-height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--accent);
+    transform-origin: bottom center;
+    animation: barGrow .5s cubic-bezier(.4,0,.2,1) both;
+    animation-delay: calc(var(--i, 0) * 14ms);
+    transition: opacity .25s ease;
+  }
+  .trend-bars .tr-bar.exp { background: var(--danger); opacity: 0.75; }
+  .trend-bars.has-selection .tr-col:not(.sel) .tr-bar { opacity: 0.35; }
+  .trend-bars .tr-lbl {
+    font-size: 9px;
+    height: 12px;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .trend-bars .tr-col.sel .tr-lbl { color: var(--accent-deep); font-weight: 800; }
+  @keyframes barGrow {
+    from { transform: scaleY(0); }
+    to { transform: scaleY(1); }
+  }
+
+  /* ---------- Expense by category ---------- */
+  .cat-row {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background .22s ease;
+  }
+  .cat-row:last-child { border-bottom: none; }
+  .cat-row.no-filter { cursor: default; }
+  .cat-row.active { background: var(--danger-soft); border-bottom-color: transparent; }
+  .cat-row .cat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .cat-row .cn { font-size: 13.5px; font-weight: 600; }
+  .cat-row .ca { font-size: 12.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .cat-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .cat-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--danger);
+    opacity: 0.75;
+    transform-origin: right center;
+    animation: catGrow .6s cubic-bezier(.4,0,.2,1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  @keyframes catGrow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  /* بلور شدن اعداد جدید گزارش هم‌زمان با دکمه چشم */
+  #panel-report .delta,
+  #panel-report .cat-row .ca,
+  #panel-report #trendSummary .mc-ws-value {
+    transition: filter .35s cubic-bezier(.4,0,.2,1), opacity .35s ease;
+    filter: blur(0);
+  }
+  #panel-report.masked .delta,
+  #panel-report.masked .cat-row .ca,
+  #panel-report.masked #trendSummary .mc-ws-value {
+    filter: blur(6px);
+    opacity: 0.55;
+    user-select: none;
+  }
+
   .big-stat {
     background: var(--paper-raised);
     border: 1px solid var(--line);
@@ -2252,6 +2415,7 @@
       <button data-period="custom">بازه دلخواه</button>
     </div>
     <div class="period-range-label" id="periodRangeLabel"></div>
+    <div class="period-compare-label" id="periodCompareLabel"></div>
 
     <div class="collapse-box" id="prevMonthsBox">
       <div class="collapse-inner">
@@ -2262,9 +2426,9 @@
     <div class="collapse-box" id="allOptionsBox">
       <div class="collapse-inner">
         <div class="collapse-pad">
-          <div class="chip-select" id="rangeModeChips" style="margin-bottom:12px;">
-            <button type="button" class="chip active" data-mode="all">کل</button>
-            <button type="button" class="chip" data-mode="range">انتخاب بازه تاریخ</button>
+          <div class="seg-control" id="rangeModeChips">
+            <button type="button" class="active" data-mode="all">کل</button>
+            <button type="button" data-mode="range">انتخاب بازه دلخواه</button>
           </div>
           <div class="collapse-box" id="customRangeBox">
             <div class="collapse-inner">
@@ -2289,10 +2453,12 @@
       <div class="big-stat">
         <div class="n" id="rptSales">۰</div>
         <div class="l">مجموع فروش (تومان)</div>
+        <div class="delta" id="rptSalesDelta"></div>
       </div>
       <div class="big-stat">
         <div class="n" id="rptExpense">۰</div>
         <div class="l">مجموع هزینه (تومان)</div>
+        <div class="delta" id="rptExpenseDelta"></div>
       </div>
     </div>
 
@@ -2310,6 +2476,7 @@
     <div class="big-stat" style="margin-bottom:20px;">
       <div class="n" id="rptProfit">۰</div>
       <div class="l">سود خالص (تومان)</div>
+      <div class="delta" id="rptProfitDelta"></div>
     </div>
 
     <div class="debt-summary-total">
@@ -2332,8 +2499,21 @@
       <div class="mc-week-summary" id="mcWeekSummary"></div>
     </div>
 
+    <div class="mini-chart-wrap" id="trendWrap" style="display:none;">
+      <div class="mc-title" id="trendTitle"></div>
+      <div class="trend-bars" id="trendBars"></div>
+      <div class="mini-chart-legend">
+        <span><span class="dot" style="background:var(--accent);"></span>فروش</span>
+        <span><span class="dot" style="background:var(--danger); opacity:0.75;"></span>هزینه</span>
+      </div>
+      <div class="mc-week-summary" id="trendSummary"></div>
+    </div>
+
     <div class="section-title">محصولات پرفروش بر اساس بازه انتخابی</div>
     <div id="topProductsBox"></div>
+
+    <div class="section-title">هزینه‌ها بر اساس دسته‌بندی</div>
+    <div id="expenseCategoryBox"></div>
 
     <div class="section-title">وضعیت کلی</div>
     <div class="card-list">
@@ -2352,6 +2532,12 @@
     </div>
 
     <div class="section-title">لیست کامل تراکنش‌ها (بر اساس تاریخ)</div>
+    <div class="seg-control" id="txFilterChips" style="margin-bottom:10px;">
+      <button type="button" class="active" data-f="all">همه <span class="cnt" data-cnt="all"></span></button>
+      <button type="button" data-f="sale">فروش <span class="cnt" data-cnt="sale"></span></button>
+      <button type="button" data-f="expense">هزینه <span class="cnt" data-cnt="expense"></span></button>
+    </div>
+    <div id="txCatTag" style="margin-bottom:10px;"></div>
     <div class="card-list" id="fullTransactionsList"></div>
     <button type="button" id="txShowMoreBtn" class="section-title-add-btn" style="display:none; width:100%; margin-top:10px; padding:10px; text-align:center;">دیدن بیشتر</button>
   </section>
@@ -4535,10 +4721,10 @@
   });
 
   document.getElementById('rangeModeChips').addEventListener('click', e=>{
-    const chip = e.target.closest('.chip');
+    const chip = e.target.closest('button');
     if(!chip) return;
     customRangeOpen = chip.dataset.mode==='range';
-    document.querySelectorAll('#rangeModeChips .chip').forEach(c=>c.classList.toggle('active', c===chip));
+    document.querySelectorAll('#rangeModeChips button').forEach(c=>c.classList.toggle('active', c===chip));
     document.getElementById('customRangeBox').classList.toggle('open', customRangeOpen);
     if(customRangeOpen) ensureCustomRangeDefaults();
     currentPeriod = customRangeOpen ? 'custom' : 'all';
@@ -4708,9 +4894,17 @@
       ...sales.map(s=>({ kind:'sale', ts:s.ts, data:s })),
       ...expenses.map(e=>({ kind:'expense', ts:e.ts, data:e }))
     ].sort((a,b)=> b.ts - a.ts);
+    // اگر دسته‌ی فیلترشده در این بازه هزینه‌ای ندارد، فیلتر دسته را برمی‌داریم
+    if(txCategory && !expenses.some(e=>(e.category||'سایر')===txCategory)){
+      txCategory = null;
+    }
     txVisibleCount = TX_PAGE_SIZE;
+    updateTxFilterUI();
     renderTxPage();
 
+    renderComparison(now, totalSales, totalExpense, profit);
+    renderCategoryBreakdown(expenses, totalShipCost);
+    renderTrendChart(now);
     renderMiniChart();
   }
 
@@ -4746,18 +4940,345 @@
     }
   }
 
+  /* ---- فیلتر لیست تراکنش‌ها: همه / فروش / هزینه (+ فیلتر دسته از بخش دسته‌بندی هزینه‌ها) ---- */
+  let txFilter = 'all';      // all | sale | expense
+  let txCategory = null;     // نام دسته‌ی هزینه یا null
+
+  function getFilteredTx(){
+    return fullTxItems.filter(t=>{
+      if(txFilter!=='all' && t.kind!==txFilter) return false;
+      if(txCategory && !(t.kind==='expense' && (t.data.category||'سایر')===txCategory)) return false;
+      return true;
+    });
+  }
+
+  function updateTxFilterUI(){
+    const counts = {
+      all: fullTxItems.length,
+      sale: fullTxItems.filter(t=>t.kind==='sale').length,
+      expense: fullTxItems.filter(t=>t.kind==='expense').length
+    };
+    document.querySelectorAll('#txFilterChips button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.f===txFilter);
+      const c = b.querySelector('.cnt');
+      if(c) c.textContent = '(' + toman(counts[b.dataset.f]) + ')';
+    });
+    const tag = document.getElementById('txCatTag');
+    tag.innerHTML = txCategory
+      ? `<button type="button" class="chip-btn" id="txCatTagBtn">دسته: ${escapeHTML(txCategory)} ✕</button>`
+      : '';
+    document.querySelectorAll('#expenseCategoryBox .cat-row').forEach(r=>{
+      r.classList.toggle('active', !!txCategory && r.dataset.cat===txCategory);
+    });
+  }
+
   function renderTxPage(){
     const txBox = document.getElementById('fullTransactionsList');
     const moreBtn = document.getElementById('txShowMoreBtn');
-    if(fullTxItems.length===0){
-      txBox.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="icon">📋</div><div class="msg">در این بازه تراکنشی ثبت نشده.<br>بازه زمانی دیگری را انتخاب کن.</div></div>`;
+    const list = getFilteredTx();
+    if(list.length===0){
+      const msg = fullTxItems.length>0
+        ? 'تراکنشی با این فیلتر پیدا نشد.'
+        : 'در این بازه تراکنشی ثبت نشده.<br>بازه زمانی دیگری را انتخاب کن.';
+      txBox.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="icon">📋</div><div class="msg">${msg}</div></div>`;
       moreBtn.style.display = 'none';
       return;
     }
-    const slice = fullTxItems.slice(0, txVisibleCount);
+    const slice = list.slice(0, txVisibleCount);
     txBox.innerHTML = slice.map(txRowHTML).join('');
-    moreBtn.style.display = txVisibleCount < fullTxItems.length ? 'block' : 'none';
+    moreBtn.style.display = txVisibleCount < list.length ? 'block' : 'none';
   }
+
+  document.getElementById('txFilterChips').addEventListener('click', e=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    txFilter = btn.dataset.f;
+    txCategory = null;
+    txVisibleCount = TX_PAGE_SIZE;
+    updateTxFilterUI();
+    renderTxPage();
+  });
+
+  document.getElementById('txCatTag').addEventListener('click', e=>{
+    if(!e.target.closest('#txCatTagBtn')) return;
+    txCategory = null;
+    txVisibleCount = TX_PAGE_SIZE;
+    updateTxFilterUI();
+    renderTxPage();
+  });
+
+  /* ================= Report extras: compare / category / trend ================= */
+  const DAY_MS = 86400000;
+  const jalaliMonthShort = ['فرو','ارد','خرد','تیر','مرد','شهر','مهر','آبا','آذر','دی','بهم','اسف'];
+
+  function rangeTotals(start, end){
+    let sales = 0, ship = 0, exp = 0;
+    DB.sales.forEach(x=>{ if(x.ts>=start && x.ts<=end){ sales += x.total; ship += (x.shipCostAmount||0); } });
+    DB.expenses.forEach(x=>{ if(x.ts>=start && x.ts<=end) exp += x.amount; });
+    const expense = exp + ship;
+    return { sales, expense, profit: sales - expense };
+  }
+
+  // بازه‌ی قبلیِ هم‌اندازه برای مقایسه (برای «کل» مقایسه‌ای نداریم)
+  function previousPeriodRange(now){
+    if(currentPeriod==='today'){
+      const s = new Date(now); s.setHours(0,0,0,0);
+      const ps = new Date(s); ps.setDate(ps.getDate()-1);
+      return { start: ps.getTime(), end: ps.getTime() + (now - s.getTime()), name:'دیروز' };
+    }
+    if(currentPeriod==='week'){
+      const { start } = currentWeekRange(now);
+      const ps = new Date(start); ps.setDate(ps.getDate()-7);
+      return { start: ps.getTime(), end: ps.getTime() + (now - start), name:'هفته قبل' };
+    }
+    if(currentPeriod==='month'){
+      const { start } = currentMonthRange(now);
+      const [jy, jm] = g2j(new Date(start).getFullYear(), new Date(start).getMonth()+1, new Date(start).getDate());
+      const py = jm===1 ? jy-1 : jy, pm = jm===1 ? 12 : jm-1;
+      const pr = jalaliMonthRange(py, pm);
+      return { start: pr.start, end: Math.min(pr.end, pr.start + (now - start)), name:'ماه قبل' };
+    }
+    if(currentPeriod==='prevMonths' && selectedPrevMonth){
+      const { jy, jm } = selectedPrevMonth;
+      const py = jm===1 ? jy-1 : jy, pm = jm===1 ? 12 : jm-1;
+      const pr = jalaliMonthRange(py, pm);
+      return { start: pr.start, end: pr.end, name:'ماه قبل‌تر' };
+    }
+    if(currentPeriod==='custom'){
+      const from = customRangeFrom!=null ? customRangeFrom : 0;
+      const to = customRangeTo!=null ? customRangeTo : now;
+      if(from<=0 || to<from) return null;
+      const len = to - from;
+      return { start: from - len - 1, end: from - 1, name:'بازه قبلیِ هم‌اندازه' };
+    }
+    return null;
+  }
+
+  function setDelta(id, cur, prev, higherIsBetter){
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(prev==null){ el.className = 'delta'; el.textContent = ''; return; }
+    if(cur===0 && prev===0){ el.className = 'delta flat'; el.textContent = 'بدون تغییر'; return; }
+    if(prev===0){ el.className = 'delta flat'; el.textContent = 'بازه قبل: ۰'; return; }
+    const pct = Math.round(((cur - prev) / Math.abs(prev)) * 100);
+    if(pct===0){ el.className = 'delta flat'; el.textContent = 'بدون تغییر'; return; }
+    const good = (cur > prev) === higherIsBetter;
+    el.className = 'delta ' + (good ? 'good' : 'bad');
+    el.textContent = (cur>prev ? '▲ ' : '▼ ') + toman(Math.abs(pct)) + '٪ نسبت به قبل';
+  }
+
+  function renderComparison(now, totalSales, totalExpense, profit){
+    const labelEl = document.getElementById('periodCompareLabel');
+    const prev = previousPeriodRange(now);
+    if(!prev){
+      labelEl.textContent = '';
+      setDelta('rptSalesDelta', 0, null, true);
+      setDelta('rptExpenseDelta', 0, null, false);
+      setDelta('rptProfitDelta', 0, null, true);
+      return;
+    }
+    const t = rangeTotals(prev.start, prev.end);
+    labelEl.textContent = `مقایسه با ${prev.name}: از ${fmtDate(prev.start)} تا ${fmtDate(prev.end)}`;
+    setDelta('rptSalesDelta', totalSales, t.sales, true);
+    setDelta('rptExpenseDelta', totalExpense, t.expense, false);
+    setDelta('rptProfitDelta', profit, t.profit, true);
+  }
+
+  function renderCategoryBreakdown(expenses, shipTotal){
+    const box = document.getElementById('expenseCategoryBox');
+    const map = {};
+    expenses.forEach(e=>{ const k = e.category || 'سایر'; map[k] = (map[k]||0) + e.amount; });
+    const rows = Object.entries(map).map(([name, amount])=>({ name, amount, filterable:true }));
+    if(shipTotal>0) rows.push({ name:'هزینه ارسال', amount: shipTotal, filterable:false });
+    rows.sort((a,b)=>b.amount-a.amount);
+    const total = rows.reduce((a,r)=>a+r.amount, 0);
+    if(!rows.length || total<=0){
+      box.innerHTML = `<div class="empty-state" style="padding:24px;"><div class="icon">💸</div><div class="msg">در این بازه هزینه‌ای ثبت نشده.</div></div>`;
+      return;
+    }
+    box.innerHTML = rows.map((r,i)=>{
+      const pct = (r.amount/total)*100;
+      const active = (r.filterable && txCategory===r.name) ? ' active' : '';
+      return `<div class="cat-row${r.filterable?'':' no-filter'}${active}" ${r.filterable?`data-cat="${escapeHTML(r.name)}"`:''}>
+        <div class="cat-top">
+          <span class="cn">${escapeHTML(r.name)}</span>
+          <span class="ca">${toman(r.amount)} تومان · ${toman(Math.round(pct))}٪</span>
+        </div>
+        <div class="cat-bar"><i style="width:${Math.max(2, pct).toFixed(1)}%; --i:${Math.min(i,10)};"></i></div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('expenseCategoryBox').addEventListener('click', e=>{
+    const row = e.target.closest('.cat-row');
+    if(!row || !row.dataset.cat) return;
+    const cat = row.dataset.cat;
+    if(txCategory===cat){
+      txCategory = null;
+    }else{
+      txCategory = cat;
+      txFilter = 'expense';
+    }
+    txVisibleCount = TX_PAGE_SIZE;
+    updateTxFilterUI();
+    renderTxPage();
+    if(txCategory) document.getElementById('txFilterChips').scrollIntoView({ behavior:'smooth', block:'center' });
+  });
+
+  /* ---- نمودار روند: روزانه (تا ۳۱ روز) یا ماهانه (۱۲ ماه اخیر) ---- */
+  let trendData = [];
+  let trendSelectedIdx = null;
+
+  function trendRange(now){
+    if(currentPeriod==='month') return { start: currentMonthRange(now).start, end: now };
+    if(currentPeriod==='prevMonths'){
+      if(!selectedPrevMonth) return null;
+      return jalaliMonthRange(selectedPrevMonth.jy, selectedPrevMonth.jm);
+    }
+    if(currentPeriod==='custom'){
+      const from = customRangeFrom!=null ? customRangeFrom : 0;
+      const to = customRangeTo!=null ? customRangeTo : now;
+      if(from<=0 || to<from) return null;
+      return { start: from, end: to };
+    }
+    if(currentPeriod==='all'){
+      let first = null;
+      DB.sales.forEach(x=>{ if(first===null || x.ts<first) first = x.ts; });
+      DB.expenses.forEach(x=>{ if(first===null || x.ts<first) first = x.ts; });
+      if(first===null) return null;
+      return { start: first, end: now };
+    }
+    return null; // امروز و این هفته: نمودار هفته کافی است
+  }
+
+  function buildTrendBuckets(start, end){
+    const s0 = new Date(start); s0.setHours(0,0,0,0);
+    const e0 = new Date(end); e0.setHours(0,0,0,0);
+    const span = Math.round((e0 - s0) / DAY_MS) + 1;
+    const items = [];
+    const add = (ts, amount, kind, keyFn)=>{
+      if(ts<start || ts>end) return;
+      const i = keyFn(ts);
+      if(i<0 || i>=items.length) return;
+      items[i][kind] += amount;
+    };
+    let mode, keyFn;
+    if(span <= 31){
+      mode = 'daily';
+      for(let i=0;i<span;i++){
+        const d = new Date(s0); d.setDate(d.getDate()+i);
+        const [, , jd] = g2j(d.getFullYear(), d.getMonth()+1, d.getDate());
+        items.push({
+          sales:0, expense:0,
+          label: (span<=10 || jd===1 || jd%5===0) ? toFaDigits(jd) : '',
+          full: fmtDate(d.getTime())
+        });
+      }
+      keyFn = ts=>{ const d = new Date(ts); d.setHours(0,0,0,0); return Math.round((d - s0)/DAY_MS); };
+    }else{
+      mode = 'monthly';
+      const sd = new Date(start), ed = new Date(end);
+      let [jy, jm] = g2j(sd.getFullYear(), sd.getMonth()+1, sd.getDate());
+      const [ey, em] = g2j(ed.getFullYear(), ed.getMonth()+1, ed.getDate());
+      const keys = [];
+      while(jy<ey || (jy===ey && jm<=em)){
+        keys.push(jy*100+jm);
+        items.push({ sales:0, expense:0, label: jalaliMonthShort[jm-1], full: jalaliMonthNames[jm-1] + ' ' + toFaDigits(jy) });
+        jm++; if(jm>12){ jm=1; jy++; }
+      }
+      keyFn = ts=>{
+        const d = new Date(ts);
+        const [y, m] = g2j(d.getFullYear(), d.getMonth()+1, d.getDate());
+        return keys.indexOf(y*100+m);
+      };
+    }
+    DB.sales.forEach(x=>{
+      add(x.ts, x.total, 'sales', keyFn);
+      if(x.shipCostAmount) add(x.ts, x.shipCostAmount, 'expense', keyFn);
+    });
+    DB.expenses.forEach(x=> add(x.ts, x.amount, 'expense', keyFn));
+    let truncated = false;
+    let out = items;
+    if(mode==='monthly' && items.length>12){ out = items.slice(-12); truncated = true; }
+    return { mode, items: out, truncated };
+  }
+
+  function renderTrendSummary(){
+    const el = document.getElementById('trendSummary');
+    if(!el || !trendData.items.length) return;
+    const isDaily = trendData.mode==='daily';
+    let html;
+    if(trendSelectedIdx!==null && trendData.items[trendSelectedIdx]){
+      const x = trendData.items[trendSelectedIdx];
+      const pr = x.sales - x.expense;
+      html = `
+        <div class="mc-ws-item"><div class="mc-ws-label">فروش</div><div class="mc-ws-value" style="color:var(--accent-deep);">${toman(x.sales)}</div></div>
+        <div class="mc-ws-item"><div class="mc-ws-label">سود</div><div class="mc-ws-value" style="color:${pr>=0?'var(--accent-deep)':'var(--danger)'};">${toman(pr)}</div></div>
+        <div class="mc-ws-item"><div class="mc-ws-label">${isDaily?'تاریخ':'ماه'}</div><div class="mc-ws-value">${x.full}</div></div>`;
+    }else{
+      const items = trendData.items;
+      const totalS = items.reduce((a,x)=>a+x.sales,0);
+      const totalP = items.reduce((a,x)=>a+x.sales-x.expense,0);
+      const best = items.reduce((b,x)=> x.sales>b.sales ? x : b, items[0]);
+      html = `
+        <div class="mc-ws-item"><div class="mc-ws-label">میانگین فروش ${isDaily?'روزانه':'ماهانه'}</div><div class="mc-ws-value" style="color:var(--accent-deep);">${toman(Math.round(totalS/items.length))}</div></div>
+        <div class="mc-ws-item"><div class="mc-ws-label">سود این بازه</div><div class="mc-ws-value" style="color:${totalP>=0?'var(--accent-deep)':'var(--danger)'};">${toman(totalP)}</div></div>
+        <div class="mc-ws-item"><div class="mc-ws-label">پرفروش‌ترین ${isDaily?'روز':'ماه'}</div><div class="mc-ws-value">${best.sales>0 ? best.full : '—'}</div></div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  function renderTrendChart(now){
+    const wrap = document.getElementById('trendWrap');
+    const range = trendRange(now);
+    if(!range){ wrap.style.display = 'none'; trendData = { mode:'daily', items:[] }; return; }
+    const data = buildTrendBuckets(range.start, range.end);
+    const hasAny = data.items.some(x=>x.sales>0 || x.expense>0);
+    if(!hasAny){ wrap.style.display = 'none'; trendData = { mode:data.mode, items:[] }; return; }
+    wrap.style.display = '';
+    trendData = data;
+    trendSelectedIdx = null;
+    document.getElementById('trendTitle').textContent =
+      'روند فروش و هزینه (' + (data.mode==='daily' ? 'روزانه' : 'ماهانه') + (data.truncated ? ' — ۱۲ ماه اخیر' : '') + ')';
+    const CHART_H = 82;
+    const maxVal = Math.max(1, ...data.items.map(x=>Math.max(x.sales, x.expense)));
+    const bars = document.getElementById('trendBars');
+    bars.classList.remove('has-selection');
+    bars.innerHTML = data.items.map((x,i)=>{
+      const sH = x.sales>0 ? Math.max(4, Math.round((x.sales/maxVal)*CHART_H)) : 2;
+      const eH = x.expense>0 ? Math.max(4, Math.round((x.expense/maxVal)*CHART_H)) : 2;
+      return `<div class="tr-col" data-idx="${i}">
+        <div class="tr-pair">
+          <div class="tr-bar" style="height:${sH}px; --i:${i};"></div>
+          <div class="tr-bar exp" style="height:${eH}px; --i:${i};"></div>
+        </div>
+        <div class="tr-lbl">${x.label}</div>
+      </div>`;
+    }).join('');
+    renderTrendSummary();
+  }
+
+  document.getElementById('trendBars').addEventListener('click', e=>{
+    const col = e.target.closest('.tr-col');
+    if(!col) return;
+    e.stopPropagation();
+    const idx = parseInt(col.dataset.idx, 10);
+    trendSelectedIdx = (trendSelectedIdx===idx) ? null : idx;
+    document.querySelectorAll('#trendBars .tr-col').forEach(c=>c.classList.toggle('sel', parseInt(c.dataset.idx,10)===trendSelectedIdx));
+    document.getElementById('trendBars').classList.toggle('has-selection', trendSelectedIdx!==null);
+    renderTrendSummary();
+  });
+
+  document.addEventListener('click', e=>{
+    if(trendSelectedIdx===null) return;
+    const wrap = document.getElementById('trendWrap');
+    if(wrap && !wrap.contains(e.target)){
+      trendSelectedIdx = null;
+      document.querySelectorAll('#trendBars .tr-col').forEach(c=>c.classList.remove('sel'));
+      document.getElementById('trendBars').classList.remove('has-selection');
+      renderTrendSummary();
+    }
+  });
 
   document.getElementById('txShowMoreBtn').addEventListener('click', ()=>{
     txVisibleCount += TX_PAGE_SIZE;
@@ -8376,8 +8897,12 @@
     {
       version: '1.23.0',
       notes: [
-        'در گزارش‌ها دکمه جدید «ماه‌های قبل» اضافه شد؛ با زدن روی آن ماه‌های قبلی که فروش یا هزینه داشته‌اند باز می‌شوند و با انتخاب هر ماه، خلاصه همان ماه را می‌بینی',
-        'دکمه «کل» حذف شد و داخل «بازه دلخواه» آمد: با زدن «بازه دلخواه» می‌توانی «کل» (همه‌ی فعالیت‌ها) یا «انتخاب بازه تاریخ» را بزنی',
+        'در گزارش‌ها دکمه جدید «ماه‌های قبل» اضافه شد؛ ماه‌های قبلی که فروش یا هزینه داشته‌اند باز می‌شوند و با انتخاب هر ماه، خلاصه همان ماه را می‌بینی',
+        'دکمه «کل» حذف شد و داخل «بازه دلخواه» آمد: با زدن «بازه دلخواه» می‌توانی «کل» (همه‌ی فعالیت‌ها) یا «انتخاب بازه دلخواه» را بزنی',
+        'زیر مجموع فروش، هزینه و سود، درصد تغییر نسبت به بازه قبلی (دیروز، هفته قبل، ماه قبل و ...) نمایش داده می‌شود',
+        'نمودار جدید روند فروش و هزینه برای ماه، ماه‌های قبل و بازه دلخواه (روزانه یا ماهانه)؛ روی هر ستون بزن تا جزئیاتش را ببینی',
+        'بخش جدید «هزینه‌ها بر اساس دسته‌بندی»؛ روی هر دسته بزنی، لیست تراکنش‌ها فقط همان دسته را نشان می‌دهد',
+        'بالای لیست تراکنش‌ها فیلتر «همه / فروش / هزینه» اضافه شد',
         'باز و بسته شدن بخش‌های جدید گزارش با انیمیشن انجام می‌شود'
       ]
     },
